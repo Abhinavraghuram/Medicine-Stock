@@ -556,8 +556,8 @@ button:active{
       <div class="edit-section-title">Stock prediction</div>
       <div class="edit-stock-grid">
         <div class="edit-field">
-          <label for="editSheets">Sheets available</label>
-          <input id="editSheets" type="number" min="0" step="1" placeholder="0">
+          <label for="editTablets">Tablets available</label>
+          <input id="editTablets" type="number" min="0" step="1" placeholder="0">
         </div>
         <div class="edit-field">
           <label for="editPerSheet">Tablets / sheet</label>
@@ -650,6 +650,7 @@ async function loadData(){
     await loadStockData();
     render();
     if(typeof renderToBuy==="function") renderToBuy();
+    scheduleMidnightStockRefresh();
     hideSplash();
   }
 }
@@ -661,6 +662,7 @@ async function seedDefaults(){
   await loadStockData();
   render();
   if(typeof renderToBuy==="function")renderToBuy();
+  scheduleMidnightStockRefresh();
   hideSplash();
 }
 async function patchMed(id,patch){
@@ -769,37 +771,59 @@ async function stepQty(id,delta){
 }
 
 
+
 const stockCache={};
+let stockMidnightTimer=null;
 
 function stockKey(id){return `tablets-stock-${id}`;}
 
+function localDateKey(d=new Date()){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function daysBetweenDates(a,b){
+  const [ay,am,ad]=String(a).split("-").map(Number);
+  const [by,bm,bd]=String(b).split("-").map(Number);
+  if(!ay||!by)return 0;
+  const x=new Date(ay,am-1,ad), y=new Date(by,bm-1,bd);
+  return Math.max(0,Math.floor((y-x)/86400000));
+}
 function normalizeStock(info){
   return {
     sheets:Math.max(0,Number(info?.sheets)||0),
+    tablets:Math.max(0,Number(info?.tablets??info?.tabletsAvailable)||0),
     perSheet:Math.max(0,Number(info?.perSheet)||0),
-    perDay:Math.max(0,Number(info?.perDay)||0)
+    perDay:Math.max(0,Number(info?.perDay)||0),
+    asOf:info?.asOf||localDateKey()
   };
 }
-
 function getStockInfo(id){
-  return stockCache[id]||{sheets:0,perSheet:0,perDay:0};
+  const raw=stockCache[id]||{sheets:0,tablets:0,perSheet:0,perDay:0,asOf:localDateKey()};
+  const today=localDateKey();
+  const elapsed=daysBetweenDates(raw.asOf,today);
+  if(elapsed>0 && raw.perDay>0){
+    raw.tablets=Math.max(0,raw.tablets-(elapsed*raw.perDay));
+    raw.asOf=today;
+    stockCache[id]=raw;
+    // Persist the midnight/day rollover asynchronously.
+    saveStockInfo(id,raw);
+  }
+  return raw;
 }
-
 async function saveStockInfo(id,info){
   const normalized=normalizeStock(info);
   stockCache[id]=normalized;
-
-  // Local cache is retained only as a fallback/migration source.
   try{localStorage.setItem(stockKey(id),JSON.stringify(normalized));}catch{}
-
   if(!sb||!configured)return true;
 
   const {error}=await sb.from("medicine_stock").upsert({
     user_id:APP_USER_ID,
     medicine_id:id,
     sheets_available:normalized.sheets,
+    tablets_available:normalized.tablets,
     tablets_per_sheet:normalized.perSheet,
-    tablets_per_day:normalized.perDay
+    tablets_per_day:normalized.perDay,
+    stock_as_of:normalized.asOf
   },{onConflict:"user_id,medicine_id"});
 
   if(error){
@@ -809,94 +833,100 @@ async function saveStockInfo(id,info){
   }
   return true;
 }
-
 async function loadStockData(){
   if(!sb||!meds.length)return;
-
   const {data,error}=await sb.from("medicine_stock")
-    .select("medicine_id,sheets_available,tablets_per_sheet,tablets_per_day")
+    .select("medicine_id,sheets_available,tablets_available,tablets_per_sheet,tablets_per_day,stock_as_of")
     .eq("user_id",APP_USER_ID);
-
   if(error){
     console.error("Stock load error:",error);
     toast("Could not load stock data: "+error.message);
     return;
   }
 
-  const rows=data||[];
-  const serverIds=new Set();
-
+  const rows=data||[],serverIds=new Set();
   for(const row of rows){
     serverIds.add(row.medicine_id);
     stockCache[row.medicine_id]=normalizeStock({
       sheets:row.sheets_available,
+      tablets:row.tablets_available,
       perSheet:row.tablets_per_sheet,
-      perDay:row.tablets_per_day
+      perDay:row.tablets_per_day,
+      asOf:row.stock_as_of||localDateKey()
     });
+    getStockInfo(row.medicine_id);
   }
 
-  // Migrate existing V9 local stock only where Supabase has no record.
   for(const m of meds){
     if(serverIds.has(m.id))continue;
-
     let legacy={};
     try{legacy=JSON.parse(localStorage.getItem(stockKey(m.id))||"{}");}catch{}
-    const normalized=normalizeStock(legacy);
+    const normalized=normalizeStock({
+      sheets:legacy.sheets,
+      tablets:legacy.tablets??(Number(legacy.sheets||0)*Number(legacy.perSheet||0)),
+      perSheet:legacy.perSheet,
+      perDay:legacy.perDay,
+      asOf:legacy.asOf||localDateKey()
+    });
     stockCache[m.id]=normalized;
-
-    if(normalized.sheets||normalized.perSheet||normalized.perDay){
+    if(normalized.sheets||normalized.tablets||normalized.perSheet||normalized.perDay){
       await saveStockInfo(m.id,normalized);
     }
   }
 }
+function scheduleMidnightStockRefresh(){
+  if(stockMidnightTimer)clearTimeout(stockMidnightTimer);
+  const now=new Date(), next=new Date(now);
+  next.setHours(24,0,0,0);
+  stockMidnightTimer=setTimeout(async()=>{
+    for(const m of meds)getStockInfo(m.id);
+    render();
+    if(typeof renderToBuy==="function")renderToBuy();
+    scheduleMidnightStockRefresh();
+  },Math.max(1000,next-now+100));
+}
 
 function stockSummary(m){
   const x=getStockInfo(m.id);
-  const sheets=Math.max(0,Number(x.sheets)||0);
+  const tablets=Math.max(0,Number(x.tablets)||0);
   const perSheet=Math.max(0,Number(x.perSheet)||0);
   const perDay=Math.max(0,Number(x.perDay)||0);
-
-  let options="";
-  for(let i=0;i<=20;i++){
-    options+=`<option value="${i}" ${i===sheets?"selected":""}>${i}</option>`;
+  let calculation=`<span class="days">Set tablets available & tablets/day to calculate days</span>`;
+  if(perDay>0){
+    const exactDays=tablets/perDay;
+    const daysText=Number.isInteger(exactDays)?String(exactDays):String(Number(exactDays.toFixed(2)));
+    const cls=exactDays<=2?"danger":exactDays<=6?"warn":"days";
+    calculation=`${tablets} tablets · <span class="${cls}">${daysText} day${exactDays===1?"":"s"} left</span>`;
   }
-
-  let calculation=`<span class="days">Set tablets/sheet & tablets/day to calculate days</span>`;
-  if(perSheet>0 && perDay>0){
-    const tablets=sheets*perSheet;
-    const days=tablets/perDay;
-    const rounded=Math.ceil(days);
-    const cls=days<=2?"danger":days<=6?"warn":"days";
-    calculation=`${tablets} tablets · <span class="${cls}">~${rounded} day${rounded===1?"":"s"} left</span>`;
-  }
-
   return `<div class="stock-summary-row">
     <span class="stock-summary-row stock-summary-inner">
-      <span class="stock-select-label">Sheets available</span>
-      <select data-stock-sheets="${m.id}" aria-label="Sheets available for ${esc(m.name)}">${options}</select>
+      <span class="stock-select-label">Tablets available</span>
+      <select data-stock-tablets="${m.id}" aria-label="Tablets available for ${esc(m.name)}">
+        ${Array.from({length:201},(_,i)=>`<option value="${i}" ${i===tablets?"selected":""}>${i}</option>`).join("")}
+      </select>
     </span>
     <div class="stockinfo">📦 ${calculation}</div>
   </div>`;
 }
 
-
-document.addEventListener("change",e=>{
-  const select=e.target.closest("[data-stock-sheets]");
+document.addEventListener("change",async e=>{
+  const select=e.target.closest("[data-stock-tablets]");
   if(!select)return;
-  const id=select.dataset.stockSheets;
+  const id=select.dataset.stockTablets;
   const m=meds.find(x=>x.id===id);
   if(!m)return;
-
   const old=getStockInfo(id);
-  saveStockInfo(id,{
-    sheets:Number(select.value)||0,
+  await saveStockInfo(id,{
+    sheets:Math.floor((Number(select.value)||0)/(old.perSheet||1)),
+    tablets:Number(select.value)||0,
     perSheet:old.perSheet,
-    perDay:old.perDay
+    perDay:old.perDay,
+    asOf:localDateKey()
   });
-
   render();
   if(typeof renderToBuy==="function")renderToBuy();
 });
+
 
 let sheetModalMedicineId=null;
 let sheetModalEditExisting=false;
@@ -965,19 +995,17 @@ document.getElementById("sheetConfirm").onclick=async()=>{
 async function receiveMedicine(id){
   const m=meds.find(x=>x.id===id);
   if(!m)return false;
-
   const buySheets=Math.max(1,Number.parseInt(String(m.qty||"1").replace(/[^\d]/g,""),10)||1);
   const stock=getStockInfo(id);
-  const currentSheets=Math.max(0,Number(stock.sheets)||0);
-  const newSheets=currentSheets+buySheets;
-
+  const addedTablets=buySheets*Math.max(0,Number(stock.perSheet)||0);
   const ok=await patchMed(id,{status:"In-stock"});
   if(!ok)return false;
-
-  saveStockInfo(id,{
-    sheets:newSheets,
+  await saveStockInfo(id,{
+    sheets:Math.max(0,Number(stock.sheets)||0)+buySheets,
+    tablets:Math.max(0,Number(stock.tablets)||0)+addedTablets,
     perSheet:stock.perSheet,
-    perDay:stock.perDay
+    perDay:stock.perDay,
+    asOf:localDateKey()
   });
   return true;
 }
@@ -996,7 +1024,7 @@ function openEditModal(id){
   document.getElementById("editModalTitle").textContent=`Edit ${m.name}${m.dose?" "+m.dose:""}`;
   document.getElementById("editName").value=m.name||"";
   document.getElementById("editDose").value=m.dose||"";
-  document.getElementById("editSheets").value=st.sheets||"";
+  document.getElementById("editTablets").value=st.tablets||"";
   document.getElementById("editPerSheet").value=st.perSheet||"";
   document.getElementById("editPerDay").value=st.perDay||"";
   document.getElementById("editModalBack").style.display="flex";
@@ -1019,7 +1047,8 @@ document.getElementById("editSave").onclick=async()=>{
   if(!ok)return;
 
   saveStockInfo(editingMedicineId,{
-    sheets:document.getElementById("editSheets").value,
+    sheets:Math.floor((Number(document.getElementById("editTablets").value)||0)/(Number(document.getElementById("editPerSheet").value)||1)),
+    tablets:document.getElementById("editTablets").value,
     perSheet:document.getElementById("editPerSheet").value,
     perDay:document.getElementById("editPerDay").value
   });
