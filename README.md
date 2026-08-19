@@ -67,3 +67,7 @@ When pressed, it asks for confirmation with the exact number of medicines that w
 ## V24 critical JavaScript fix
 
 The V18 build contained a stale `clearTop` event binding even though the top-right button had been renamed to `themeButton`. That caused a JavaScript error before `loadData()` and the theme handlers could run. V24 removes that stale binding, restores the known-working shared `APP_USER_ID` medicine query, embeds the supplied Supabase publishable key, and bumps the service-worker cache.
+
+## V25 features
+
+Removed Dark Mode due to glitches
