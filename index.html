@@ -619,15 +619,10 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.style.display="block";clearTimeout(window._t);window._t=setTimeout(()=>t.style.display="none",2200);}
 function qtyNumber(q){return Math.max(1,parseInt(String(q||"1").match(/\d+/)?.[0]||"1",10));}
 
-async const splashShownAt=performance.now();
-const SPLASH_MIN_MS=3000;
-
 async function hideSplash(){
   const splash=document.getElementById("splash");
   if(!splash)return;
-  const elapsed=performance.now()-splashShownAt;
-  const remaining=Math.max(0,SPLASH_MIN_MS-elapsed);
-  if(remaining) await new Promise(resolve=>setTimeout(resolve,remaining));
+  await new Promise(resolve=>setTimeout(resolve,350));
   splash.classList.add("hide");
 }
 async function loadData(){
