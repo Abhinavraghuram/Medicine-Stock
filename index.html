@@ -286,6 +286,40 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
   .edit-stock-grid{grid-template-columns:1fr}
 }
 
+
+/* V8: sheet quantities are managed through popups, not +/- controls */
+.sheet-modal-back{
+  position:fixed;inset:0;z-index:2200;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(10,20,22,.48);backdrop-filter:blur(5px);padding:16px
+}
+.sheet-modal{
+  width:min(100%,390px);background:var(--card);border:1px solid var(--line);
+  border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.25)
+}
+.sheet-modal h3{margin:0 0 6px;font-size:19px;color:var(--text)}
+.sheet-modal p{margin:0 0 14px;color:var(--muted);font-size:12px}
+.sheet-options{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.sheet-options button{
+  padding:11px 4px;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg);font-weight:800;color:var(--text)
+}
+.sheet-options button.selected{
+  background:#e3f7f4;border-color:#9ddbd3;color:#087f73
+}
+.sheet-modal-actions{display:flex;gap:7px;margin-top:15px}
+.sheet-modal-actions button{flex:1;padding:11px;border-radius:10px;font-weight:800}
+.buy-qty-display{
+  font-size:11px;font-weight:800;color:var(--muted);
+  padding:6px 0
+}
+.receivedbtn{border-color:#a7dfbd!important;color:#167344!important;background:#f0fff5!important}
+@media(max-width:430px){
+  .sheet-options{grid-template-columns:repeat(4,1fr)}
+  .sheet-modal-back{align-items:flex-end;padding:0}
+  .sheet-modal{width:100%;border-radius:20px 20px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+}
+
 </style>
 </head>
 <body>
@@ -363,6 +397,19 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
 
 </div>
 
+
+
+<div id="sheetModalBack" class="sheet-modal-back">
+  <div class="sheet-modal" role="dialog" aria-modal="true" aria-labelledby="sheetModalTitle">
+    <h3 id="sheetModalTitle">Need to Buy</h3>
+    <p id="sheetModalText">Select the number of sheets.</p>
+    <div id="sheetOptions" class="sheet-options"></div>
+    <div class="sheet-modal-actions">
+      <button id="sheetCancel" class="smallbtn">Cancel</button>
+      <button id="sheetConfirm" class="primary">Add to To Buy</button>
+    </div>
+  </div>
+</div>
 
 <div id="editModalBack" class="edit-modal-back">
   <div class="edit-modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
@@ -537,30 +584,21 @@ function render(){
         <button class="status ${m.status==="In-stock"?"stock":"buy"}" data-status="${m.id}"><span class="dot"></span>${m.status==="In-stock"?"In stock":"Need to buy"}</button>
       </div>
       <div class="medbottom">
-        <div class="qty"><button data-minus="${m.id}">−</button><span>${esc(m.qty||"1 Sheet")}</span><button data-plus="${m.id}">+</button></div>
+        <div></div>
         <div class="actions"><button class="smallbtn" data-edit="${m.id}">Edit</button><button class="smallbtn deletebtn" data-del="${m.id}">Delete</button></div>
       </div>
     </div>`).join(""):`<div class="empty">No medicines found for the selected filters.</div>`;
 
-  cards.querySelectorAll("[data-status]").forEach(b=>b.onclick=async()=>{
+  cards.querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>{
     const m=meds.find(x=>x.id===b.dataset.status);
     if(!m)return;
-
-    const goingToStock = m.status === "Need to Buy";
-    const patch = goingToStock
-      ? {status:"In-stock", qty:"1 Sheet"}
-      : {status:"Need to Buy"};
-
-    const ok = await patchMed(m.id, patch);
-    if(ok){
-      render();
-      toast(goingToStock
-        ? "Marked In-stock — quantity reset to 1 Sheet"
-        : "Marked Need to Buy");
+    if(m.status==="In-stock"){
+      openBuySheetModal(m.id,false);
+    }else{
+      // Already in To Buy; the To Buy tab has its own sheet editor.
+      switchView("toBuy");
     }
   });
-  cards.querySelectorAll("[data-minus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.minus,-1));
-  cards.querySelectorAll("[data-plus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.plus,1));
   cards.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editInline(b.dataset.edit));
   if(currentView==="toBuy") renderToBuy();
 
@@ -623,6 +661,92 @@ function stockSummary(m){
   const rounded=Math.ceil(days);
   const cls=days<=2?"danger":days<=6?"warn":"days";
   return `<div class="stockinfo">📦 ${sheets} sheet${sheets===1?"":"s"} · ${tablets} tablets · <span class="${cls}">~${rounded} day${rounded===1?"":"s"} left</span></div>`;
+}
+
+
+
+let sheetModalMedicineId=null;
+let sheetModalEditExisting=false;
+let sheetModalSelected=1;
+
+function openBuySheetModal(id,editExisting=false){
+  const m=meds.find(x=>x.id===id);
+  if(!m)return;
+  sheetModalMedicineId=id;
+  sheetModalEditExisting=editExisting;
+  sheetModalSelected=Math.max(1,qtyNumber(m.qty));
+
+  const options=document.getElementById("sheetOptions");
+  options.innerHTML="";
+  for(let i=1;i<=10;i++){
+    const b=document.createElement("button");
+    b.textContent=`${i} ${i===1?"Sheet":"Sheets"}`;
+    if(i===sheetModalSelected)b.classList.add("selected");
+    b.onclick=()=>{
+      sheetModalSelected=i;
+      options.querySelectorAll("button").forEach(x=>x.classList.remove("selected"));
+      b.classList.add("selected");
+    };
+    options.appendChild(b);
+  }
+
+  document.getElementById("sheetModalTitle").textContent=
+    editExisting ? `Edit To-Buy Quantity` : `Need to Buy`;
+  document.getElementById("sheetModalText").textContent=
+    editExisting
+      ? `Change the number of sheets to buy for ${m.name}.`
+      : `Select how many sheets to add to the To Buy list for ${m.name}.`;
+  document.getElementById("sheetConfirm").textContent=
+    editExisting ? "Save Quantity" : "Add to To Buy";
+  document.getElementById("sheetModalBack").style.display="flex";
+}
+
+function closeBuySheetModal(){
+  sheetModalMedicineId=null;
+  sheetModalEditExisting=false;
+  document.getElementById("sheetModalBack").style.display="none";
+}
+
+document.getElementById("sheetCancel").onclick=closeBuySheetModal;
+document.getElementById("sheetModalBack").onclick=e=>{
+  if(e.target===e.currentTarget)closeBuySheetModal();
+};
+document.getElementById("sheetConfirm").onclick=async()=>{
+  if(!sheetModalMedicineId)return;
+  const id=sheetModalMedicineId;
+  const qty=`${sheetModalSelected} ${sheetModalSelected===1?"Sheet":"Sheets"}`;
+
+  const ok=await patchMed(id,{
+    status:"Need to Buy",
+    qty
+  });
+
+  if(ok){
+    closeBuySheetModal();
+    render();
+    renderToBuy();
+    toast(sheetModalEditExisting ? `To Buy quantity changed to ${qty}` : `${qty} added to To Buy`);
+  }
+};
+
+async function receiveMedicine(id){
+  const m=meds.find(x=>x.id===id);
+  if(!m)return false;
+
+  const buySheets=Math.max(1,Number.parseInt(String(m.qty||"1").replace(/[^\d]/g,""),10)||1);
+  const stock=getStockInfo(id);
+  const currentSheets=Math.max(0,Number(stock.sheets)||0);
+  const newSheets=currentSheets+buySheets;
+
+  const ok=await patchMed(id,{status:"In-stock"});
+  if(!ok)return false;
+
+  saveStockInfo(id,{
+    sheets:newSheets,
+    perSheet:stock.perSheet,
+    perDay:stock.perDay
+  });
+  return true;
 }
 
 let editingMedicineId=null;
@@ -694,27 +818,19 @@ document.getElementById("markAllBought").onclick=async()=>{
   if(!p.length)return toast("Nothing to mark in-stock");
 
   const confirmed=confirm(
-    `Mark all ${p.length} medicine${p.length===1?"":"s"} as in-stock?\\n\\n` +
-    `All quantities will be reset to 1 Sheet.`
+    `Mark all ${p.length} medicine${p.length===1?"":"s"} as received?\\n\\n` +
+    `Their pending sheet quantities will be added to Sheets available.`
   );
   if(!confirmed)return;
 
-  const {error}=await sb.from("medicines")
-    .update({status:"In-stock",qty:"1 Sheet"})
-    .eq("user_id",APP_USER_ID)
-    .eq("status","Need to Buy");
-
-  if(error){toast(error.message);return;}
-
-  meds.forEach(m=>{
-    if(m.status==="Need to Buy"){
-      m.status="In-stock";
-      m.qty="1 Sheet";
-    }
-  });
+  for(const m of p){
+    const ok=await receiveMedicine(m.id);
+    if(!ok)return;
+  }
 
   render();
-  toast("All medicines marked in-stock — quantities reset to 1 Sheet");
+  if(typeof renderToBuy==="function")renderToBuy();
+  toast(`All ${p.length} medicine${p.length===1?"":"s"} received — stock updated`);
 };
 
 let currentView="medicines";
@@ -723,28 +839,55 @@ function renderToBuy(){
   document.getElementById("toBuyTabCount").textContent=list.length?`(${list.length})`:"";
   document.getElementById("toBuyCountText").textContent=`${list.length} medicine${list.length===1?"":"s"} need to be bought`;
   const cards=document.getElementById("toBuyCards");
+
   cards.innerHTML=list.length?list.map(m=>`
     <div class="card">
       <div class="medtop">
-        <div><div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div><div class="medmeta">${esc(m.person)}</div>${stockSummary(m)}</div>
-        <button class="status buy" data-buy-status="${m.id}"><span class="dot"></span>Need to buy</button>
+        <div>
+          <div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div>
+          <div class="medmeta">${esc(m.person)}</div>
+          ${stockSummary(m)}
+        </div>
+        <button class="status buy receivedbtn" data-receive="${m.id}">
+          <span class="dot"></span>Received
+        </button>
       </div>
       <div class="medbottom">
-        <div class="qty"><button data-buy-minus="${m.id}">−</button><span>${esc(m.qty||"1 Sheet")}</span><button data-buy-plus="${m.id}">+</button></div>
-        <button class="smallbtn" data-buy-edit="${m.id}">Edit</button>
+        <div class="buy-qty-display">🛒 ${esc(m.qty||"1 Sheet")} to buy</div>
+        <div class="actions">
+          <button class="smallbtn" data-buy-edit-sheets="${m.id}">Edit sheets</button>
+          <button class="smallbtn" data-buy-edit="${m.id}">Edit</button>
+        </div>
       </div>
-    </div>`).join(""):`<div class="empty">🎉 Nothing to buy right now.</div>`;
-  const preview=list.length?["💊 Medicine Order","",...list.map(m=>`• ${m.name}${m.dose?" "+m.dose:""} — ${m.qty||"1 Sheet"}`)].join("\\n"):"No medicines are currently unavailable.";
+    </div>`).join("")
+    :`<div class="empty">🎉 Nothing to buy right now.</div>`;
+
+  const preview=list.length
+    ?["💊 Medicine Order","",...list.map(m=>`• ${m.name}${m.dose?" "+m.dose:""} — ${m.qty||"1 Sheet"}`)].join("\\n")
+    :"No medicines are currently unavailable.";
   document.getElementById("orderPreview").textContent=preview;
-  cards.querySelectorAll("[data-buy-status]").forEach(b=>b.onclick=async()=>{
-    const m=meds.find(x=>x.id===b.dataset.buyStatus);if(!m)return;
-    const ok=await patchMed(m.id,{status:"In-stock",qty:"1 Sheet"});
-    if(ok){render();renderToBuy();toast("Marked In-stock — quantity reset to 1 Sheet");}
+
+  cards.querySelectorAll("[data-receive]").forEach(b=>b.onclick=async()=>{
+    const m=meds.find(x=>x.id===b.dataset.receive);
+    if(!m)return;
+    const pending=qtyNumber(m.qty);
+    const ok=await receiveMedicine(m.id);
+    if(ok){
+      render();
+      renderToBuy();
+      const stock=getStockInfo(m.id);
+      toast(`Received ${pending} sheet${pending===1?"":"s"} — ${stock.sheets} sheet${stock.sheets===1?"":"s"} now available`);
+    }
   });
-  cards.querySelectorAll("[data-buy-minus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.buyMinus,-1).then(renderToBuy));
-  cards.querySelectorAll("[data-buy-plus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.buyPlus,1).then(renderToBuy));
-  cards.querySelectorAll("[data-buy-edit]").forEach(b=>b.onclick=()=>editInline(b.dataset.buyEdit));
+
+  cards.querySelectorAll("[data-buy-edit-sheets]").forEach(b=>
+    b.onclick=()=>openBuySheetModal(b.dataset.buyEditSheets,true)
+  );
+  cards.querySelectorAll("[data-buy-edit]").forEach(b=>
+    b.onclick=()=>editInline(b.dataset.buyEdit)
+  );
 }
+
 function switchView(view){
   currentView=view;
   const medicinePanel=document.querySelector(".panel");
