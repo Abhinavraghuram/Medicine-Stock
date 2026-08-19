@@ -117,6 +117,83 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
   .bottomin button{padding:8px 7px;font-size:11px}
 }
 
+
+/* Compact divider-list layout */
+.cards{gap:0!important;margin-top:4px}
+.cards .card{
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  padding:8px 3px!important;
+  border-bottom:1px solid var(--line)!important;
+}
+.cards .card:last-child{border-bottom:0!important}
+.cards .medtop{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+.cards .medname{font-size:14px!important;font-weight:800!important;line-height:1.2}
+.cards .medmeta{font-size:10px!important;margin-top:2px!important}
+.cards .medbottom{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  margin-top:5px!important;
+}
+.cards .qty{margin-left:auto!important}
+.cards .actions{display:flex!important;gap:4px!important}
+.cards .actions .smallbtn{padding:5px 7px!important;font-size:10px!important}
+.cards .status{padding:5px 7px!important;font-size:10px!important;white-space:nowrap}
+@media(min-width:521px){
+  .cards .card{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto auto!important;
+    align-items:center!important;
+    column-gap:12px!important;
+  }
+  .cards .medtop{display:block!important}
+  .cards .medbottom{margin-top:0!important}
+  .cards .qty{margin-left:0!important}
+}
+
+
+/* Compact list: always-visible Edit + Delete actions */
+.cards .medbottom{
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:6px!important;
+}
+.cards .qty{margin-left:0!important}
+.cards .actions{
+  display:flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  justify-content:flex-end!important;
+  white-space:nowrap!important;
+}
+.cards .actions .smallbtn{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:42px!important;
+  padding:5px 7px!important;
+  font-size:10px!important;
+}
+.cards .actions .deletebtn{
+  display:inline-flex!important;
+  color:var(--danger)!important;
+  border-color:#efb5b8!important;
+  background:#fff7f7!important;
+}
+@media(max-width:380px){
+  .cards .actions{gap:3px!important}
+  .cards .actions .smallbtn{min-width:36px!important;padding:5px 5px!important;font-size:9px!important}
+}
+
 </style>
 </head>
 <body>
@@ -188,7 +265,7 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
     </div>
     <button id="copyBuyDedicated" class="primary smallbtn">📋 Copy List</button>
   </div>
-  <div id="toBuyCards" class="cards"></div>
+  <div id="toBuyCards" class="cards compact-list"></div>
   <div id="orderPreview" class="order-preview"></div>
 </div>
 
