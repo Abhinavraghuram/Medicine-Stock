@@ -1,0 +1,23 @@
+{
+  "name": "Tablets \u2014 Medicine Stock",
+  "short_name": "Tablets",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f8",
+  "theme_color": "#0f766e",
+  "description": "Professional medicine stock tracker with cloud sync and WhatsApp purchase lists.",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

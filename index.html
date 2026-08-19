@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Tablets">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="icon.svg">
+<title>Tablets — Medicine Stock</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f5f7f8;--card:#fff;--text:#16202a;--muted:#6b7280;--line:#e5e7eb;--primary:#0f766e;--primary2:#115e59;--green:#16a34a;--danger:#b91c1c;--blue:#2563a8;--shadow:0 8px 26px rgba(15,23,42,.07)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,Arial,sans-serif}
+button,input,select{font:inherit}button{border:0;border-radius:11px;padding:10px 13px;cursor:pointer}input{width:100%;border:1px solid var(--line);border-radius:11px;background:#fff;padding:11px 12px;color:var(--text)}
+button:disabled{opacity:.5;cursor:not-allowed}.app{max-width:1080px;margin:auto;padding:14px 14px 105px}
+.appbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 2px 12px}.appbrand{display:flex;align-items:center;gap:11px}
+.appicon{width:43px;height:43px;border-radius:14px;background:linear-gradient(135deg,#0f766e,#14b8a6);display:grid;place-items:center;color:#fff;font-size:22px;box-shadow:var(--shadow)}
+.appbar h1{margin:0;font-size:25px}.subtitle{color:var(--muted);font-size:12px;margin-top:2px}.iconbtn{width:42px;height:42px;padding:0;background:#fff;border:1px solid var(--line)}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.summarycard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;box-shadow:var(--shadow)}.summarycard .num{font-size:24px;font-weight:800}.summarycard .label{font-size:12px;color:var(--muted);margin-top:3px}.summarycard.buy .num{color:var(--blue)}
+.filterbox,.panel{background:#fff;border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow);padding:13px;margin-top:11px}.searchrow{display:grid;grid-template-columns:1fr auto;gap:8px}
+.clear{background:#fff;border:1px solid var(--line);white-space:nowrap}.chiprow{display:flex;gap:7px;align-items:center;overflow:auto;padding:7px 0 2px;scrollbar-width:none}.chiprow::-webkit-scrollbar{display:none}.chiplabel{font-size:11px;color:var(--muted);font-weight:800;flex:0 0 auto;min-width:48px}
+.chip{white-space:nowrap;padding:8px 11px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--muted);font-size:12px;font-weight:750}.chip.active{background:#e6fffb;border-color:#9edfd7;color:var(--primary)}
+.filter-note{font-size:12px;color:var(--muted);margin-top:8px}.panelhead{display:flex;justify-content:space-between;align-items:center;gap:8px}.panelhead h2{font-size:18px;margin:0}.primary{background:var(--primary);color:#fff}.green{background:var(--green);color:#fff}
+.cards{display:grid;gap:9px;margin-top:10px}.card{background:#fff;border:1px solid var(--line);border-radius:17px;padding:13px;box-shadow:var(--shadow)}
+.medtop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.medname{font-size:16px;font-weight:800}.medmeta{font-size:12px;color:var(--muted);margin-top:3px}
+.status{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:7px 9px;font-size:11px;font-weight:800;white-space:nowrap}.status.stock{background:#e3f6ea;color:#247344}.status.buy{background:#e7f0ff;color:#245e9d}.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.medbottom{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px}.qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fff}.qty button{width:35px;height:34px;padding:0;background:#f8fafc;border-radius:0;font-weight:800}.qty span{min-width:77px;text-align:center;font-size:12px;font-weight:750}.actions{display:flex;gap:6px}.smallbtn{padding:8px 10px;font-size:12px;background:#fff;border:1px solid var(--line)}.deletebtn{color:var(--danger);border-color:#f0c4c4;background:#fff7f7}
+.inlinegrid{display:grid;grid-template-columns:1fr 170px;gap:7px}.inline-actions{display:flex;gap:6px;margin-top:7px}.empty{text-align:center;padding:28px;color:var(--muted)}
+.addgrid{display:grid;grid-template-columns:1.25fr 130px 130px 160px auto;gap:8px;margin-top:10px}.note{background:#f0fdfa;border:1px solid #bfece6;color:#155e59;padding:10px 12px;border-radius:11px;font-size:12px;margin-top:9px}
+.bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:9px;z-index:10}.bottomin{max-width:1080px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modalback{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:16px;z-index:20}.modal{background:#fff;border-radius:17px;padding:17px;max-width:540px;width:100%}.modal h3{margin-top:0}.modal textarea{width:100%;min-height:230px;border:1px solid var(--line);border-radius:11px;padding:10px;font-family:inherit}.toast{display:none;position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:#17202a;color:#fff;padding:10px 14px;border-radius:999px;font-size:12px;z-index:30}
+@media(min-width:820px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.addgrid{grid-template-columns:1fr 1fr}.inlinegrid{grid-template-columns:1fr}}
+@media(max-width:520px){.app{padding-left:10px;padding-right:10px}.summarycard{padding:11px}.summarycard .num{font-size:20px}.searchrow{grid-template-columns:1fr}.clear{width:100%}.medbottom{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions button{flex:1}.addgrid{grid-template-columns:1fr}.bottomin{grid-template-columns:1fr 1fr}}
+
+html,body{min-height:100%;background:#f5f7f8}
+body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.app{padding-bottom:calc(105px + env(safe-area-inset-bottom))}
+.bottom{padding-bottom:calc(9px + env(safe-area-inset-bottom))}
+.splash{
+  position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(145deg,#0f766e,#14b8a6);
+  padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+  opacity:1;visibility:visible;transition:opacity .35s ease,visibility .35s ease
+}
+.splash.hide{opacity:0;visibility:hidden;pointer-events:none}
+.splash-card{text-align:center;color:#fff;transform:translateY(-5vh)}
+.splash-icon{
+  width:92px;height:92px;border-radius:27px;background:rgba(255,255,255,.16);
+  box-shadow:0 18px 48px rgba(0,0,0,.15);display:grid;place-items:center;margin:0 auto 18px;
+  backdrop-filter:blur(10px)
+}
+.splash-icon img{width:64px;height:64px;border-radius:18px}
+.splash-title{font-size:28px;font-weight:850;letter-spacing:-.03em}
+.splash-sub{margin-top:5px;font-size:13px;opacity:.9}
+.splash-loader{
+  width:34px;height:34px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;
+  border-radius:50%;margin:24px auto 0;animation:spin .9s linear infinite
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+
+/* V18: dedicated To Buy view + dark mode */
+.to-buy-panel{display:none}
+.view-tabs{display:flex;gap:7px;margin-top:11px;background:var(--card);border:1px solid var(--line);padding:5px;border-radius:14px;box-shadow:var(--shadow)}
+.view-tab{flex:1;background:transparent;color:var(--muted);font-weight:800;padding:9px 10px;border-radius:10px}
+.view-tab.active{background:#e6fffb;color:var(--primary)}
+.to-buy-summary{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.to-buy-count{font-size:13px;color:var(--muted)}
+.order-preview{margin-top:10px;background:#f0fdfa;border:1px solid #bfece6;color:#155e59;border-radius:13px;padding:11px;font-size:12px;line-height:1.5;white-space:pre-wrap}
+.dark-toggle{position:relative}
+@media (prefers-color-scheme: dark){
+  body.auto-dark{--bg:#0b1115;--card:#121a20;--text:#edf4f5;--muted:#9ba8ad;--line:#25323a;--primary:#2dd4bf;--primary2:#14b8a6;--shadow:0 8px 28px rgba(0,0,0,.28)}
+}
+body.dark{--bg:#0b1115;--card:#121a20;--text:#edf4f5;--muted:#9ba8ad;--line:#25323a;--primary:#2dd4bf;--primary2:#14b8a6;--shadow:0 8px 28px rgba(0,0,0,.28)}
+body.dark input,body.dark select,body.dark .clear,body.dark .smallbtn,body.dark .iconbtn,body.dark .chip,body.dark .qty,body.dark .view-tabs{background:#121a20;color:var(--text);border-color:var(--line)}
+body.dark .chip.active,body.dark .view-tab.active{background:#123b37;color:#5eead4;border-color:#245f58}
+body.dark .order-preview{background:#102d2a;color:#99f6e4;border-color:#245f58}
+body.dark .splash{background:linear-gradient(145deg,#064e49,#0f766e)}
+.theme-menu{position:fixed;right:14px;top:70px;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:7px;box-shadow:var(--shadow);display:none;min-width:150px}
+.theme-menu button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);padding:9px}
+.theme-menu button:hover{background:rgba(127,127,127,.08)}
+
+</style>
+</head>
+<body>
+
+<div id="splash" class="splash" aria-label="Loading Tablets">
+  <div class="splash-card">
+    <div class="splash-icon"><img src="apple-touch-icon.png" alt=""></div>
+    <div class="splash-title">Tablets</div>
+    <div class="splash-sub">Medicine stock</div>
+    <div class="splash-loader" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="appbar">
+    <div class="appbrand">
+      <div class="appicon">💊</div>
+      <div><h1>Tablets</h1><div id="subtitle" class="subtitle">0 medicines · 0 to buy</div></div>
+    </div>
+    <button id="themeButton" class="iconbtn" title="Appearance">◐</button>
+  </div>
+
+  <div id="themeMenu" class="theme-menu">
+    <button data-theme="system">◐ System</button>
+    <button data-theme="light">☀️ Light</button>
+    <button data-theme="dark">🌙 Dark</button>
+  </div>
+
+  <div class="view-tabs">
+    <button id="viewMedicines" class="view-tab active">💊 Medicines</button>
+    <button id="viewToBuy" class="view-tab">🛒 To Buy <span id="toBuyTabCount"></span></button>
+  </div>
+
+  <div class="summary">
+    <div class="summarycard"><div id="total" class="num">0</div><div class="label">Total</div></div>
+    <div class="summarycard"><div id="stockCount" class="num">0</div><div class="label">In stock</div></div>
+    <div class="summarycard buy"><div id="buyCount" class="num">0</div><div class="label">To buy</div></div>
+  </div>
+
+  <div class="filterbox">
+    <div class="searchrow">
+      <input id="search" placeholder="Search medicines...">
+      <button id="clearFilters" class="clear">Clear filters</button>
+    </div>
+    <div id="personChips" class="chiprow"></div>
+    <div id="categoryChips" class="chiprow"></div>
+    <div id="statusChips" class="chiprow"></div>
+    <div id="filterNote" class="filter-note">Showing 0 medicines</div>
+  </div>
+
+  <div class="panel">
+    <div class="panelhead">
+      <h2>Medicines</h2>
+      <button id="markAllBought" class="primary smallbtn">✅ All received</button>
+    </div>
+    <div id="cards" class="cards"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panelhead"><h2>Add tablet</h2></div>
+    <div class="addgrid">
+      <input id="newName" placeholder="Tablet name">
+      <input id="newDose" placeholder="Dose">
+      <select id="newPerson"><option>Father</option><option>Mother</option></select>
+      <select id="newCategory"></select>
+      <button id="add" class="primary">Add</button>
+    </div>
+    <div class="note">Category is stored but hidden from each medicine card. Use the Category filter to view tablets by category. Increasing quantity automatically marks the tablet Need to Buy. Marking it In-stock resets quantity to 1 Sheet.</div>
+  </div>
+
+<div id="toBuyPanel" class="panel to-buy-panel">
+  <div class="to-buy-summary">
+    <div>
+      <div class="panelhead"><h2>To Buy</h2></div>
+      <div id="toBuyCountText" class="to-buy-count">0 medicines need to be bought</div>
+    </div>
+    <button id="copyBuyDedicated" class="primary smallbtn">📋 Copy List</button>
+  </div>
+  <div id="toBuyCards" class="cards"></div>
+  <div id="orderPreview" class="order-preview"></div>
+</div>
+
+</div>
+
+<div class="bottom"><div class="bottomin">
+  <button id="copyBuy" class="primary">Copy To-Buy List</button>
+  <button id="wa" class="green">Open WhatsApp</button>
+</div></div>
+
+<div id="modalBack" class="modalback">
+  <div class="modal">
+    <h3>To-buy list</h3>
+    <textarea id="preview"></textarea>
+    <div class="actions" style="margin-top:10px"><button id="close" class="clear">Close</button><button id="copyModal" class="primary">Copy</button></div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+const {createClient}=supabase;
+const SUPABASE_URL="https://artwgoylksxvapoziylg.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFydHdnb3lsa3N4dmFwb3ppeWxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwODgyMjksImV4cCI6MjEwMjY2NDIyOX0.nQsInYpYqTIHygu9-T1vKt6iox6E0i4fAWDxTxLzxAU";
+const configured=!SUPABASE_PUBLISHABLE_KEY.includes("PASTE_");
+const sb=configured?createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null;
+const APP_USER_ID="11111111-1111-1111-1111-111111111111";
+
+const categories=["Parkinsons","Sugar & BP","Urine","Heart","Misc"];
+const qtyOptions=Array.from({length:10},(_,i)=>`${i+1} ${i===0?"Sheet":"Sheets"}`);
+const starter=[
+["Syndopa","110","Father","In-stock","Parkinsons","1 Sheet"],["Rivamer","3","Father","Need to Buy","Parkinsons","1 Sheet"],
+["Met XL","50","Father","In-stock","Sugar & BP","1 Sheet"],["Telma","40","Father","In-stock","Sugar & BP","1 Sheet"],
+["Istavel","100","Father","In-stock","Sugar & BP","1 Sheet"],["Amaryl M Forte","2","Father","Need to Buy","Sugar & BP","1 Sheet"],
+["Amaryl M Forte","1","Father","Need to Buy","Sugar & BP","1 Sheet"],["Mirago","25","Father","Need to Buy","Urine","1 Sheet"],
+["Silodal","8","Father","Need to Buy","Urine","1 Sheet"],["Dytor","5","Father","Need to Buy","Misc","1 Sheet"],
+["Lipitas gold","20","Father","Need to Buy","Heart","1 Sheet"],["Rosumac gold","10","Mother","Need to Buy","Heart","1 Sheet"],
+["Prolomet XL","25","Mother","In-stock","Sugar & BP","1 Sheet"],["Zoryl M3","","Mother","Need to Buy","Sugar & BP","1 Sheet"],
+["Istamet XR","100/1000","Mother","In-stock","Sugar & BP","1 Sheet"],["Shelcal XT","","Mother","In-stock","Misc","1 Sheet"]
+];
+
+let meds=[];
+let personFilter="all", categoryFilter="all", statusFilter="all";
+
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.style.display="block";clearTimeout(window._t);window._t=setTimeout(()=>t.style.display="none",2200);}
+function qtyNumber(q){return Math.max(1,parseInt(String(q||"1").match(/\d+/)?.[0]||"1",10));}
+
+async function hideSplash(){
+  const splash=document.getElementById("splash");
+  if(!splash)return;
+  await new Promise(resolve=>setTimeout(resolve,350));
+  splash.classList.add("hide");
+}
+async function loadData(){
+  if(!configured){
+    toast("Supabase Publishable key is missing.");
+    setTimeout(hideSplash,700);
+    return;
+  }
+  const {data,error}=await sb.from("medicines")
+    .select("*")
+    .eq("user_id",APP_USER_ID)
+    .order("sort_order",{ascending:true});
+
+  if(error){
+    console.error("Supabase load error:",error);
+    toast("Could not load medicines: "+error.message);
+    setTimeout(hideSplash,700);
+    return;
+  }
+
+  meds=data||[];
+  if(!meds.length){
+    await seedDefaults();
+  }else{
+    render();
+    if(typeof renderToBuy==="function") renderToBuy();
+    hideSplash();
+  }
+}
+async function seedDefaults(){
+  const rows=starter.map(([name,dose,person,status,category,qty],i)=>({user_id:APP_USER_ID,name,dose,person,status,category,qty,sort_order:i}));
+  const {data,error}=await sb.from("medicines").insert(rows).select("*");
+  if(error){toast(error.message);return;}
+  meds=data||[];render();
+}
+async function patchMed(id,patch){
+  const {error}=await sb.from("medicines").update(patch).eq("id",id).eq("user_id",APP_USER_ID);
+  if(error){toast(error.message);return false;}
+  const m=meds.find(x=>x.id===id);if(m)Object.assign(m,patch);return true;
+}
+function filterList(){
+  const q=document.getElementById("search").value.trim().toLowerCase();
+  return meds.filter(m=>{
+    const nd=(m.name+" "+(m.dose||"")).toLowerCase();
+    return (!q||nd.includes(q))
+      &&(personFilter==="all"||m.person===personFilter)
+      &&(categoryFilter==="all"||String(m.category||"").trim()===categoryFilter)
+      &&(statusFilter==="all"||m.status===statusFilter);
+  });
+}
+function chipRow(targetId,label,items,current,onPick){
+  const el=document.getElementById(targetId);
+  el.innerHTML=`<span class="chiplabel">${label}</span>`+items.map(([v,l])=>`<button class="chip ${current===v?"active":""}" data-chip="${esc(v)}">${esc(l)}</button>`).join("");
+  el.querySelectorAll("[data-chip]").forEach(b=>b.onclick=()=>onPick(b.dataset.chip));
+}
+function render(){
+  const list=filterList();
+  const total=meds.length,stock=meds.filter(m=>m.status==="In-stock").length,buy=meds.filter(m=>m.status==="Need to Buy").length;
+  document.getElementById("total").textContent=total;
+  document.getElementById("stockCount").textContent=stock;
+  document.getElementById("buyCount").textContent=buy;
+  document.getElementById("subtitle").textContent=`${total} medicines · ${buy} to buy`;
+
+  chipRow("personChips","For",[["all","All"],["Father","Father"],["Mother","Mother"]],personFilter,v=>{personFilter=v;render();});
+  chipRow("categoryChips","Category",[["all","All categories"],...categories.map(c=>[c,c])],categoryFilter,v=>{categoryFilter=v;render();});
+  chipRow("statusChips","Status",[["all","All status"],["In-stock","In stock"],["Need to Buy","To buy"]],statusFilter,v=>{statusFilter=v;render();});
+
+  const active=[];
+  const q=document.getElementById("search").value.trim();
+  if(q)active.push(`Search: ${q}`);
+  if(personFilter!=="all")active.push(`For: ${personFilter}`);
+  if(categoryFilter!=="all")active.push(`Category: ${categoryFilter}`);
+  if(statusFilter!=="all")active.push(`Status: ${statusFilter}`);
+  document.getElementById("filterNote").textContent=active.length?`Showing ${list.length} medicine${list.length===1?"":"s"} — ${active.join(" • ")}`:`Showing all ${list.length} medicines`;
+
+  const cards=document.getElementById("cards");
+  cards.innerHTML=list.length?list.map(m=>`
+    <div class="card" data-card="${m.id}">
+      <div class="medtop">
+        <div><div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div><div class="medmeta">${esc(m.person)}</div></div>
+        <button class="status ${m.status==="In-stock"?"stock":"buy"}" data-status="${m.id}"><span class="dot"></span>${m.status==="In-stock"?"In stock":"Need to buy"}</button>
+      </div>
+      <div class="medbottom">
+        <div class="qty"><button data-minus="${m.id}">−</button><span>${esc(m.qty||"1 Sheet")}</span><button data-plus="${m.id}">+</button></div>
+        <div class="actions"><button class="smallbtn" data-edit="${m.id}">Edit</button><button class="smallbtn deletebtn" data-del="${m.id}">Delete</button></div>
+      </div>
+    </div>`).join(""):`<div class="empty">No medicines found for the selected filters.</div>`;
+
+  cards.querySelectorAll("[data-status]").forEach(b=>b.onclick=async()=>{
+    const m=meds.find(x=>x.id===b.dataset.status);
+    if(!m)return;
+
+    const goingToStock = m.status === "Need to Buy";
+    const patch = goingToStock
+      ? {status:"In-stock", qty:"1 Sheet"}
+      : {status:"Need to Buy"};
+
+    const ok = await patchMed(m.id, patch);
+    if(ok){
+      render();
+      toast(goingToStock
+        ? "Marked In-stock — quantity reset to 1 Sheet"
+        : "Marked Need to Buy");
+    }
+  });
+  cards.querySelectorAll("[data-minus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.minus,-1));
+  cards.querySelectorAll("[data-plus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.plus,1));
+  cards.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editInline(b.dataset.edit));
+  if(currentView==="toBuy") renderToBuy();
+
+  cards.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+    const med=meds.find(m=>m.id===b.dataset.del);
+    if(!med)return;
+
+    const label=`${med.name}${med.dose?" "+med.dose:""}`;
+    const confirmed=confirm(`Delete "${label}" from your medicine list?\n\nThis cannot be undone.`);
+    if(!confirmed)return;
+
+    const {error}=await sb.from("medicines").delete().eq("id",b.dataset.del).eq("user_id",APP_USER_ID);
+    if(error){toast(error.message);return;}
+    meds=meds.filter(m=>m.id!==b.dataset.del);
+    render();
+    toast("Tablet deleted");
+  });
+}
+async function stepQty(id,delta){
+  const m=meds.find(x=>x.id===id);
+  if(!m)return;
+
+  const n=qtyNumber(m.qty);
+  const next=Math.min(10,Math.max(1,n+delta));
+  if(next===n)return;
+
+  const nextQty=`${next} ${next===1?"Sheet":"Sheets"}`;
+
+  // Any increase above 1 means the medicine needs to be purchased.
+  // Decreasing back to 1 does not automatically change the status;
+  // the status button controls that separately.
+  const patch = next>n
+    ? {qty:nextQty, status:"Need to Buy"}
+    : {qty:nextQty};
+
+  const ok=await patchMed(id,patch);
+  if(ok){
+    render();
+    toast(next>n ? `Quantity ${nextQty} — marked Need to Buy` : `Quantity ${nextQty}`);
+  }
+}
+function editInline(id){
+  const m=meds.find(x=>x.id===id),card=document.querySelector(`[data-card="${id}"]`);if(!m||!card)return;
+  card.innerHTML=`<div class="inlinegrid"><input class="iname" value="${esc(m.name)}"><input class="idose" value="${esc(m.dose||"")}" placeholder="Dose / strength"></div><div class="inline-actions"><button class="primary smallbtn" data-save>Save</button><button class="smallbtn" data-cancel>Cancel</button></div>`;
+  const name=card.querySelector(".iname"),dose=card.querySelector(".idose");name.focus();
+  card.querySelector("[data-save]").onclick=async()=>{const n=name.value.trim();if(!n)return alert("Tablet name cannot be empty.");const ok=await patchMed(id,{name:n,dose:dose.value.trim()});if(ok){render();toast("Tablet updated");}};
+  card.querySelector("[data-cancel]").onclick=render;
+}
+function clearFilters(){document.getElementById("search").value="";personFilter="all";categoryFilter="all";statusFilter="all";render();}
+async function addTablet(){
+  const name=document.getElementById("newName").value.trim();if(!name)return alert("Enter the tablet name.");
+  const row={user_id:APP_USER_ID,name,dose:document.getElementById("newDose").value.trim(),person:document.getElementById("newPerson").value,category:document.getElementById("newCategory").value,status:"Need to Buy",qty:"1 Sheet",sort_order:meds.length};
+  const {data,error}=await sb.from("medicines").insert(row).select("*").single();if(error){toast(error.message);return;}
+  meds.push(data);document.getElementById("newName").value="";document.getElementById("newDose").value="";render();toast("Tablet added");
+}
+function buyText(){const b=meds.filter(m=>m.status==="Need to Buy");return b.length?["💊 TABLETS TO BUY","",...b.map(m=>`• ${m.name}${m.dose?" "+m.dose:""} — ${m.qty||"1 Sheet"}`)].join("\n"):"No tablets are currently unavailable.";}
+async function copyBuy(){try{await navigator.clipboard.writeText(buyText());toast("To-buy list copied");}catch{document.getElementById("preview").value=buyText();document.getElementById("modalBack").style.display="flex";}}
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("clearFilters").onclick=clearFilters;
+document.getElementById("copyBuy").onclick=()=>{switchView("toBuy");};
+document.getElementById("wa").onclick=()=>{switchView("toBuy");document.getElementById("preview").value=buyText();document.getElementById("modalBack").style.display="flex";};
+document.getElementById("close").onclick=()=>document.getElementById("modalBack").style.display="none";
+document.getElementById("copyModal").onclick=async()=>{await navigator.clipboard.writeText(document.getElementById("preview").value);toast("Copied");};
+document.getElementById("add").onclick=addTablet;
+document.getElementById("markAllBought").onclick=async()=>{
+  const p=meds.filter(m=>m.status==="Need to Buy");
+  if(!p.length)return toast("Nothing to mark in-stock");
+
+  const confirmed=confirm(
+    `Mark all ${p.length} medicine${p.length===1?"":"s"} as in-stock?\\n\\n` +
+    `All quantities will be reset to 1 Sheet.`
+  );
+  if(!confirmed)return;
+
+  const {error}=await sb.from("medicines")
+    .update({status:"In-stock",qty:"1 Sheet"})
+    .eq("user_id",APP_USER_ID)
+    .eq("status","Need to Buy");
+
+  if(error){toast(error.message);return;}
+
+  meds.forEach(m=>{
+    if(m.status==="Need to Buy"){
+      m.status="In-stock";
+      m.qty="1 Sheet";
+    }
+  });
+
+  render();
+  toast("All medicines marked in-stock — quantities reset to 1 Sheet");
+};
+
+let currentView="medicines";
+function setTheme(theme){
+  document.body.classList.remove("dark","auto-dark");
+  if(theme==="dark") document.body.classList.add("dark");
+  if(theme==="system"){
+    document.body.classList.add("auto-dark");
+    const prefers=window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if(prefers) document.body.classList.add("dark");
+  }
+  localStorage.setItem("tablets-theme",theme);
+  document.getElementById("themeMenu").style.display="none";
+}
+function initTheme(){
+  setTheme(localStorage.getItem("tablets-theme")||"system");
+}
+function renderToBuy(){
+  const list=meds.filter(m=>m.status==="Need to Buy");
+  document.getElementById("toBuyTabCount").textContent=list.length?`(${list.length})`:"";
+  document.getElementById("toBuyCountText").textContent=`${list.length} medicine${list.length===1?"":"s"} need to be bought`;
+  const cards=document.getElementById("toBuyCards");
+  cards.innerHTML=list.length?list.map(m=>`
+    <div class="card">
+      <div class="medtop">
+        <div><div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div><div class="medmeta">${esc(m.person)}</div></div>
+        <button class="status buy" data-buy-status="${m.id}"><span class="dot"></span>Need to buy</button>
+      </div>
+      <div class="medbottom">
+        <div class="qty"><button data-buy-minus="${m.id}">−</button><span>${esc(m.qty||"1 Sheet")}</span><button data-buy-plus="${m.id}">+</button></div>
+        <button class="smallbtn" data-buy-edit="${m.id}">Edit</button>
+      </div>
+    </div>`).join(""):`<div class="empty">🎉 Nothing to buy right now.</div>`;
+  const preview=list.length?["💊 Medicine Order","",...list.map(m=>`• ${m.name}${m.dose?" "+m.dose:""} — ${m.qty||"1 Sheet"}`)].join("\\n"):"No medicines are currently unavailable.";
+  document.getElementById("orderPreview").textContent=preview;
+  cards.querySelectorAll("[data-buy-status]").forEach(b=>b.onclick=async()=>{
+    const m=meds.find(x=>x.id===b.dataset.buyStatus);if(!m)return;
+    const ok=await patchMed(m.id,{status:"In-stock",qty:"1 Sheet"});
+    if(ok){render();renderToBuy();toast("Marked In-stock — quantity reset to 1 Sheet");}
+  });
+  cards.querySelectorAll("[data-buy-minus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.buyMinus,-1).then(renderToBuy));
+  cards.querySelectorAll("[data-buy-plus]").forEach(b=>b.onclick=()=>stepQty(b.dataset.buyPlus,1).then(renderToBuy));
+  cards.querySelectorAll("[data-buy-edit]").forEach(b=>b.onclick=()=>editInline(b.dataset.buyEdit));
+}
+function switchView(view){
+  currentView=view;
+  const medicinePanel=document.querySelector(".panel");
+  const toBuy=document.getElementById("toBuyPanel");
+  const filters=document.querySelector(".filterbox");
+  const summary=document.querySelector(".summary");
+  // First .panel is the medicine list panel.
+  const panels=document.querySelectorAll(".panel");
+  const medicineListPanel=panels[0];
+  if(view==="toBuy"){
+    medicineListPanel.style.display="none";
+    toBuy.style.display="block";
+    filters.style.display="none";
+    summary.style.display="none";
+    document.getElementById("viewMedicines").classList.remove("active");
+    document.getElementById("viewToBuy").classList.add("active");
+    renderToBuy();
+  }else{
+    medicineListPanel.style.display="block";
+    toBuy.style.display="none";
+    filters.style.display="block";
+    summary.style.display="grid";
+    document.getElementById("viewMedicines").classList.add("active");
+    document.getElementById("viewToBuy").classList.remove("active");
+    render();
+  }
+}
+document.getElementById("viewMedicines").onclick=()=>switchView("medicines");
+document.getElementById("viewToBuy").onclick=()=>switchView("toBuy");
+const themeButton=document.getElementById("themeButton");
+if(themeButton){
+  themeButton.addEventListener("click",(e)=>{
+    e.stopPropagation();
+    const menu=document.getElementById("themeMenu");
+    if(menu) menu.style.display=menu.style.display==="block"?"none":"block";
+  });
+}
+document.querySelectorAll("[data-theme]").forEach(b=>{
+  b.addEventListener("click",()=>setTheme(b.dataset.theme));
+});
+document.addEventListener("click",(e)=>{
+  const menu=document.getElementById("themeMenu");
+  if(menu && e.target!==themeButton && !menu.contains(e.target)){
+    menu.style.display="none";
+  }
+});
+document.getElementById("copyBuyDedicated").onclick=copyBuy;
+initTheme();
+
+loadData();
+</script>
+<script>
+setTimeout(()=>document.getElementById("splash")?.classList.add("hide"),4500);
+if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}
+</script>
+</body>
+</html>
