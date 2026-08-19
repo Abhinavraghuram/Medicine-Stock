@@ -320,6 +320,26 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
   .sheet-modal{width:100%;border-radius:20px 20px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
 }
 
+
+/* V9: always-visible stock information on mobile */
+.stock-summary-row{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px
+}
+.stock-summary-row .stock-select-label{
+  font-size:10px;color:var(--muted);font-weight:700
+}
+.stock-summary-row select{
+  height:28px;min-width:58px;padding:2px 22px 2px 8px;border:1px solid var(--line);
+  border-radius:8px;background:var(--bg);color:var(--text);font-size:11px;font-weight:750
+}
+.stockinfo{margin-top:0!important;font-size:10px;line-height:1.35}
+@media(max-width:430px){
+  .stock-summary-row{gap:6px}
+  .stock-summary-row .stock-select-label{font-size:10px}
+  .stock-summary-row select{height:30px;min-width:62px;font-size:11px}
+  .stockinfo{font-size:10px!important}
+}
+
 </style>
 </head>
 <body>
@@ -380,7 +400,7 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
       <select id="newCategory"></select>
       <button id="add" class="primary">Add</button>
     </div>
-    <div class="note">Category is stored but hidden from each medicine card. Use the Category filter to view tablets by category. Increasing quantity automatically marks the tablet Need to Buy. Marking it In-stock resets quantity to 1 Sheet.</div>
+    <div class="note">Category is stored but hidden from each medicine card. Use the Category filter to view tablets by category. Use the Sheets available selector to set current stock. Tap In stock to add sheets to the To Buy list.</div>
   </div>
 
 <div id="toBuyPanel" class="panel to-buy-panel">
@@ -654,16 +674,51 @@ function saveStockInfo(id,info){
 }
 function stockSummary(m){
   const x=getStockInfo(m.id);
-  const sheets=Number(x.sheets)||0, perSheet=Number(x.perSheet)||0, perDay=Number(x.perDay)||0;
-  if(!sheets||!perSheet||!perDay)return "";
-  const tablets=sheets*perSheet;
-  const days=tablets/perDay;
-  const rounded=Math.ceil(days);
-  const cls=days<=2?"danger":days<=6?"warn":"days";
-  return `<div class="stockinfo">📦 ${sheets} sheet${sheets===1?"":"s"} · ${tablets} tablets · <span class="${cls}">~${rounded} day${rounded===1?"":"s"} left</span></div>`;
+  const sheets=Math.max(0,Number(x.sheets)||0);
+  const perSheet=Math.max(0,Number(x.perSheet)||0);
+  const perDay=Math.max(0,Number(x.perDay)||0);
+
+  let options="";
+  for(let i=0;i<=20;i++){
+    options+=`<option value="${i}" ${i===sheets?"selected":""}>${i}</option>`;
+  }
+
+  let calculation=`<span class="days">Set tablets/sheet & tablets/day to calculate days</span>`;
+  if(perSheet>0 && perDay>0){
+    const tablets=sheets*perSheet;
+    const days=tablets/perDay;
+    const rounded=Math.ceil(days);
+    const cls=days<=2?"danger":days<=6?"warn":"days";
+    calculation=`${tablets} tablets · <span class="${cls}">~${rounded} day${rounded===1?"":"s"} left</span>`;
+  }
+
+  return `<div class="stock-summary-row">
+    <span class="stock-summary-row stock-summary-inner">
+      <span class="stock-select-label">Sheets available</span>
+      <select data-stock-sheets="${m.id}" aria-label="Sheets available for ${esc(m.name)}">${options}</select>
+    </span>
+    <div class="stockinfo">📦 ${calculation}</div>
+  </div>`;
 }
 
 
+document.addEventListener("change",e=>{
+  const select=e.target.closest("[data-stock-sheets]");
+  if(!select)return;
+  const id=select.dataset.stockSheets;
+  const m=meds.find(x=>x.id===id);
+  if(!m)return;
+
+  const old=getStockInfo(id);
+  saveStockInfo(id,{
+    sheets:Number(select.value)||0,
+    perSheet:old.perSheet,
+    perDay:old.perDay
+  });
+
+  render();
+  if(typeof renderToBuy==="function")renderToBuy();
+});
 
 let sheetModalMedicineId=null;
 let sheetModalEditExisting=false;
