@@ -64,7 +64,6 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-
 /* V18: dedicated To Buy view + dark mode */
 .to-buy-panel{display:none}
 .view-tabs{display:flex;gap:7px;margin-top:11px;background:var(--card);border:1px solid var(--line);padding:5px;border-radius:14px;box-shadow:var(--shadow)}
@@ -77,15 +76,6 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
 @media (prefers-color-scheme: dark){
   body.auto-dark{--bg:#0b1115;--card:#121a20;--text:#edf4f5;--muted:#9ba8ad;--line:#25323a;--primary:#2dd4bf;--primary2:#14b8a6;--shadow:0 8px 28px rgba(0,0,0,.28)}
 }
-body.dark{--bg:#0b1115;--card:#121a20;--text:#edf4f5;--muted:#9ba8ad;--line:#25323a;--primary:#2dd4bf;--primary2:#14b8a6;--shadow:0 8px 28px rgba(0,0,0,.28)}
-body.dark input,body.dark select,body.dark .clear,body.dark .smallbtn,body.dark .iconbtn,body.dark .chip,body.dark .qty,body.dark .view-tabs{background:#121a20;color:var(--text);border-color:var(--line)}
-body.dark .chip.active,body.dark .view-tab.active{background:#123b37;color:#5eead4;border-color:#245f58}
-body.dark .order-preview{background:#102d2a;color:#99f6e4;border-color:#245f58}
-body.dark .splash{background:linear-gradient(145deg,#064e49,#0f766e)}
-.theme-menu{position:fixed;right:14px;top:70px;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:7px;box-shadow:var(--shadow);display:none;min-width:150px}
-.theme-menu button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);padding:9px}
-.theme-menu button:hover{background:rgba(127,127,127,.08)}
-
 </style>
 </head>
 <body>
@@ -107,14 +97,7 @@ body.dark .splash{background:linear-gradient(145deg,#064e49,#0f766e)}
     </div>
     <button id="themeButton" class="iconbtn" title="Appearance">◐</button>
   </div>
-
-  <div id="themeMenu" class="theme-menu">
-    <button data-theme="system">◐ System</button>
-    <button data-theme="light">☀️ Light</button>
-    <button data-theme="dark">🌙 Dark</button>
-  </div>
-
-  <div class="view-tabs">
+<div class="view-tabs">
     <button id="viewMedicines" class="view-tab active">💊 Medicines</button>
     <button id="viewToBuy" class="view-tab">🛒 To Buy <span id="toBuyTabCount"></span></button>
   </div>
@@ -416,20 +399,6 @@ document.getElementById("markAllBought").onclick=async()=>{
 };
 
 let currentView="medicines";
-function setTheme(theme){
-  document.body.classList.remove("dark","auto-dark");
-  if(theme==="dark") document.body.classList.add("dark");
-  if(theme==="system"){
-    document.body.classList.add("auto-dark");
-    const prefers=window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    if(prefers) document.body.classList.add("dark");
-  }
-  localStorage.setItem("tablets-theme",theme);
-  document.getElementById("themeMenu").style.display="none";
-}
-function initTheme(){
-  setTheme(localStorage.getItem("tablets-theme")||"system");
-}
 function renderToBuy(){
   const list=meds.filter(m=>m.status==="Need to Buy");
   document.getElementById("toBuyTabCount").textContent=list.length?`(${list.length})`:"";
@@ -504,8 +473,6 @@ document.addEventListener("click",(e)=>{
   }
 });
 document.getElementById("copyBuyDedicated").onclick=copyBuy;
-initTheme();
-
 loadData();
 </script>
 <script>
