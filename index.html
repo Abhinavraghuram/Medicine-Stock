@@ -340,6 +340,80 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
   .stockinfo{font-size:10px!important}
 }
 
+
+/* V11: subtle visual polish only — no functional/UI redesign */
+body{scroll-behavior:smooth}
+
+/* Smooth app opening */
+.app{
+  animation:v11AppIn .42s ease-out both;
+}
+@keyframes v11AppIn{
+  from{opacity:0;transform:translateY(7px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* Improved header / icon entrance */
+.app-icon,.logo,.brand-icon{
+  animation:v11IconIn .5s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes v11IconIn{
+  from{opacity:0;transform:scale(.86)}
+  to{opacity:1;transform:scale(1)}
+}
+
+/* Subtle summary-card hover effects */
+.stat,.summary-card,.statcard,.summarycard{
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.stat:hover,.summary-card:hover,.statcard:hover,.summarycard:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(25,55,65,.09);
+}
+
+/* Smoother filter interactions */
+.tab,.chip,.filter-btn,.pill{
+  transition:transform .15s ease,background .18s ease,border-color .18s ease;
+}
+.tab:hover,.chip:hover,.filter-btn:hover,.pill:hover{
+  transform:translateY(-1px);
+}
+
+/* Subtle medicine-row animations */
+.card,.medicine-card,.medrow{
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+.card:hover,.medicine-card:hover,.medrow:hover{
+  transform:translateY(-1px);
+  box-shadow:0 6px 20px rgba(25,55,65,.06);
+}
+
+/* Button press animations */
+button{
+  transition:transform .13s ease,box-shadow .15s ease,filter .15s ease;
+}
+button:active{
+  transform:scale(.97);
+}
+
+/* Mobile-friendly transitions */
+@media(max-width:600px){
+  .card,.medicine-card,.medrow{
+    transition:box-shadow .16s ease,border-color .16s ease;
+  }
+  .card:hover,.medicine-card:hover,.medrow:hover{
+    transform:none;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
+
 </style>
 </head>
 <body>
