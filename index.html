@@ -194,6 +194,98 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
   .cards .actions .smallbtn{min-width:36px!important;padding:5px 5px!important;font-size:9px!important}
 }
 
+
+/* Stock prediction */
+.stockinfo{margin-top:4px;font-size:10px;color:var(--muted);font-weight:650;line-height:1.3}
+.stockinfo .days{font-weight:800;color:var(--primary)}
+.stockinfo .warn{font-weight:850;color:#b77900}
+.stockinfo .danger{font-weight:850;color:#c62828}
+.inlinegrid.stockgrid{grid-template-columns:1fr 1fr 1fr!important}
+.inlinegrid.stockgrid input{min-width:0}
+@media(max-width:430px){
+  .inlinegrid.stockgrid{grid-template-columns:1fr!important;gap:5px}
+}
+
+
+/* Edit form: prevent stock fields from covering name/dose */
+.card .inlinegrid.stockgrid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:7px!important;
+  margin-top:7px!important;
+  position:relative!important;
+  clear:both!important;
+}
+.card .inlinegrid:not(.stockgrid){
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:7px!important;
+  position:relative!important;
+  clear:both!important;
+}
+.card .inlinegrid input{
+  position:relative!important;
+  z-index:1!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.card .inline-actions{
+  display:flex!important;
+  gap:6px!important;
+  margin-top:7px!important;
+  position:relative!important;
+  clear:both!important;
+}
+@media(max-width:430px){
+  .card .inlinegrid:not(.stockgrid){
+    grid-template-columns:1fr!important;
+  }
+  .card .inlinegrid.stockgrid{
+    grid-template-columns:1fr!important;
+  }
+}
+
+
+/* Full edit popup */
+.edit-modal-back{
+  position:fixed;inset:0;z-index:2000;
+  display:none;align-items:flex-end;justify-content:center;
+  background:rgba(10,20,22,.48);
+  backdrop-filter:blur(5px);
+  padding:12px;
+}
+.edit-modal{
+  width:min(100%,520px);
+  max-height:min(88vh,700px);
+  overflow:auto;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:22px;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+  padding:16px;
+  animation:editUp .2s ease-out;
+}
+@keyframes editUp{from{transform:translateY(20px);opacity:.5}to{transform:translateY(0);opacity:1}}
+.edit-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.edit-modal-head h3{margin:0;font-size:19px;font-weight:850;color:var(--text)}
+.edit-close{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:20px}
+.edit-section{margin-top:13px}
+.edit-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:850;margin-bottom:7px}
+.edit-field{margin-bottom:9px}
+.edit-field label{display:block;font-size:11px;font-weight:750;color:var(--muted);margin:0 0 5px 2px}
+.edit-field input,.edit-field select{
+  width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--line);
+  border-radius:11px;background:var(--bg);color:var(--text);font-size:14px;
+}
+.edit-stock-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.edit-actions{display:flex;gap:8px;margin-top:16px}
+.edit-actions button{flex:1;padding:11px;border-radius:11px;font-weight:800}
+@media(max-width:430px){
+  .edit-modal-back{padding:0}
+  .edit-modal{width:100%;border-radius:22px 22px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
+  .edit-stock-grid{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body>
@@ -269,6 +361,51 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
   <div id="orderPreview" class="order-preview"></div>
 </div>
 
+</div>
+
+
+<div id="editModalBack" class="edit-modal-back">
+  <div class="edit-modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+    <div class="edit-modal-head">
+      <h3 id="editModalTitle">Edit Medicine</h3>
+      <button id="editModalClose" class="edit-close" aria-label="Close">×</button>
+    </div>
+
+    <div class="edit-section">
+      <div class="edit-section-title">Medicine</div>
+      <div class="edit-field">
+        <label for="editName">Tablet name</label>
+        <input id="editName" type="text" placeholder="e.g. Syndopa">
+      </div>
+      <div class="edit-field">
+        <label for="editDose">Dose / strength</label>
+        <input id="editDose" type="text" placeholder="e.g. 110 mg">
+      </div>
+    </div>
+
+    <div class="edit-section">
+      <div class="edit-section-title">Stock prediction</div>
+      <div class="edit-stock-grid">
+        <div class="edit-field">
+          <label for="editSheets">Sheets available</label>
+          <input id="editSheets" type="number" min="0" step="1" placeholder="0">
+        </div>
+        <div class="edit-field">
+          <label for="editPerSheet">Tablets / sheet</label>
+          <input id="editPerSheet" type="number" min="1" step="1" placeholder="10">
+        </div>
+        <div class="edit-field">
+          <label for="editPerDay">Tablets / day</label>
+          <input id="editPerDay" type="number" min="1" step="1" placeholder="3">
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-actions">
+      <button id="editCancel" class="smallbtn">Cancel</button>
+      <button id="editSave" class="primary">Save Changes</button>
+    </div>
+  </div>
 </div>
 
 <div class="bottom"><div class="bottomin">
@@ -396,7 +533,7 @@ function render(){
   cards.innerHTML=list.length?list.map(m=>`
     <div class="card" data-card="${m.id}">
       <div class="medtop">
-        <div><div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div><div class="medmeta">${esc(m.person)}</div></div>
+        <div><div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div><div class="medmeta">${esc(m.person)}</div>${stockSummary(m)}</div>
         <button class="status ${m.status==="In-stock"?"stock":"buy"}" data-status="${m.id}"><span class="dot"></span>${m.status==="In-stock"?"In stock":"Need to buy"}</button>
       </div>
       <div class="medbottom">
@@ -465,13 +602,77 @@ async function stepQty(id,delta){
     toast(next>n ? `Quantity ${nextQty} — marked Need to Buy` : `Quantity ${nextQty}`);
   }
 }
-function editInline(id){
-  const m=meds.find(x=>x.id===id),card=document.querySelector(`[data-card="${id}"]`);if(!m||!card)return;
-  card.innerHTML=`<div class="inlinegrid"><input class="iname" value="${esc(m.name)}"><input class="idose" value="${esc(m.dose||"")}" placeholder="Dose / strength"></div><div class="inline-actions"><button class="primary smallbtn" data-save>Save</button><button class="smallbtn" data-cancel>Cancel</button></div>`;
-  const name=card.querySelector(".iname"),dose=card.querySelector(".idose");name.focus();
-  card.querySelector("[data-save]").onclick=async()=>{const n=name.value.trim();if(!n)return alert("Tablet name cannot be empty.");const ok=await patchMed(id,{name:n,dose:dose.value.trim()});if(ok){render();toast("Tablet updated");}};
-  card.querySelector("[data-cancel]").onclick=render;
+
+function stockKey(id){return `tablets-stock-${id}`;}
+function getStockInfo(id){
+  try{return JSON.parse(localStorage.getItem(stockKey(id))||"{}");}catch{return {};}
 }
+function saveStockInfo(id,info){
+  localStorage.setItem(stockKey(id),JSON.stringify({
+    sheets:Math.max(0,Number(info.sheets)||0),
+    perSheet:Math.max(0,Number(info.perSheet)||0),
+    perDay:Math.max(0,Number(info.perDay)||0)
+  }));
+}
+function stockSummary(m){
+  const x=getStockInfo(m.id);
+  const sheets=Number(x.sheets)||0, perSheet=Number(x.perSheet)||0, perDay=Number(x.perDay)||0;
+  if(!sheets||!perSheet||!perDay)return "";
+  const tablets=sheets*perSheet;
+  const days=tablets/perDay;
+  const rounded=Math.ceil(days);
+  const cls=days<=2?"danger":days<=6?"warn":"days";
+  return `<div class="stockinfo">📦 ${sheets} sheet${sheets===1?"":"s"} · ${tablets} tablets · <span class="${cls}">~${rounded} day${rounded===1?"":"s"} left</span></div>`;
+}
+
+let editingMedicineId=null;
+function closeEditModal(){
+  editingMedicineId=null;
+  const back=document.getElementById("editModalBack");
+  if(back)back.style.display="none";
+}
+function openEditModal(id){
+  const m=meds.find(x=>x.id===id);
+  if(!m)return;
+  editingMedicineId=id;
+  const st=getStockInfo(id);
+  document.getElementById("editModalTitle").textContent=`Edit ${m.name}${m.dose?" "+m.dose:""}`;
+  document.getElementById("editName").value=m.name||"";
+  document.getElementById("editDose").value=m.dose||"";
+  document.getElementById("editSheets").value=st.sheets||"";
+  document.getElementById("editPerSheet").value=st.perSheet||"";
+  document.getElementById("editPerDay").value=st.perDay||"";
+  document.getElementById("editModalBack").style.display="flex";
+  setTimeout(()=>document.getElementById("editName").focus(),50);
+}
+function editInline(id){openEditModal(id);}
+
+document.getElementById("editModalClose").onclick=closeEditModal;
+document.getElementById("editCancel").onclick=closeEditModal;
+document.getElementById("editModalBack").onclick=e=>{
+  if(e.target===e.currentTarget)closeEditModal();
+};
+document.getElementById("editSave").onclick=async()=>{
+  if(!editingMedicineId)return;
+  const name=document.getElementById("editName").value.trim();
+  const dose=document.getElementById("editDose").value.trim();
+  if(!name)return alert("Tablet name cannot be empty.");
+
+  const ok=await patchMed(editingMedicineId,{name,dose});
+  if(!ok)return;
+
+  saveStockInfo(editingMedicineId,{
+    sheets:document.getElementById("editSheets").value,
+    perSheet:document.getElementById("editPerSheet").value,
+    perDay:document.getElementById("editPerDay").value
+  });
+
+  closeEditModal();
+  render();
+  if(typeof renderToBuy==="function")renderToBuy();
+  toast("Medicine updated");
+};
+
 function clearFilters(){document.getElementById("search").value="";personFilter="all";categoryFilter="all";statusFilter="all";render();}
 async function addTablet(){
   const name=document.getElementById("newName").value.trim();if(!name)return alert("Enter the tablet name.");
@@ -525,7 +726,7 @@ function renderToBuy(){
   cards.innerHTML=list.length?list.map(m=>`
     <div class="card">
       <div class="medtop">
-        <div><div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div><div class="medmeta">${esc(m.person)}</div></div>
+        <div><div class="medname">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div><div class="medmeta">${esc(m.person)}</div>${stockSummary(m)}</div>
         <button class="status buy" data-buy-status="${m.id}"><span class="dot"></span>Need to buy</button>
       </div>
       <div class="medbottom">
