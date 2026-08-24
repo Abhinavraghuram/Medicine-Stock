@@ -439,6 +439,20 @@ button:active{
   .splash-cover{animation:none}
 }
 
+
+/* V13 Low Stock navigation view */
+.low-stock-panel{display:none;margin-top:11px}
+.low-stock-panel .panelhead{margin-bottom:10px}
+.low-stock-nav-count{font-size:12px;font-weight:800;margin-left:4px}
+.low-stock-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.low-stock-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.low-stock-name{font-weight:800;color:var(--text)}
+.low-stock-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.low-stock-days{font-weight:800;color:#b45309}.low-stock-item.is-critical .low-stock-days{color:#dc2626}
+.low-stock-buy{min-height:38px;padding:7px 11px;border:1px solid #0f766e;border-radius:9px;background:#0f766e;color:#fff;font-weight:800;cursor:pointer}
+.low-stock-empty{color:var(--muted);padding:12px 0}
+@media(max-width:700px){.low-stock-list{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -465,6 +479,7 @@ button:active{
   </div>
 <div class="view-tabs">
     <button id="viewMedicines" class="view-tab active">💊 Medicines</button>
+    <button id="viewLowStock" class="view-tab">⚠️ Low Stock <span id="lowStockTabCount" class="low-stock-nav-count"></span></button>
     <button id="viewToBuy" class="view-tab">🛒 To Buy <span id="toBuyTabCount"></span></button>
   </div>
 
@@ -504,6 +519,14 @@ button:active{
     </div>
     <div class="note">Category is stored but hidden from each medicine card. Use the Category filter to view tablets by category. Use the Sheets available selector to set current stock. Tap In stock to add sheets to the To Buy list.</div>
   </div>
+
+<div id="lowStockPanel" class="panel low-stock-panel">
+  <div class="panelhead">
+    <h2>⚠️ Low Stock</h2>
+    <span class="low-stock-count"></span>
+  </div>
+  <div id="lowStockList" class="low-stock-list"></div>
+</div>
 
 <div id="toBuyPanel" class="panel to-buy-panel">
   <div class="to-buy-summary">
@@ -648,6 +671,7 @@ async function loadData(){
     await seedDefaults();
   }else{
     await loadStockData();
+    renderLowStock();
     render();
     if(typeof renderToBuy==="function") renderToBuy();
     scheduleMidnightStockRefresh();
@@ -745,7 +769,8 @@ function render(){
     render();
     toast("Tablet deleted");
   });
-}
+
+  renderLowStock();}
 async function stepQty(id,delta){
   const m=meds.find(x=>x.id===id);
   if(!m)return;
@@ -1096,6 +1121,45 @@ document.getElementById("markAllBought").onclick=async()=>{
 };
 
 let currentView="medicines";
+
+function renderLowStock(){
+  const list=document.getElementById("lowStockList");
+  if(!list)return;
+  const low=meds.map(m=>{
+    const s=getStockInfo(m.id);
+    const tablets=Math.max(0,Number(s.tablets)||0);
+    const perDay=Math.max(0,Number(s.perDay)||0);
+    return perDay>0?{...m,tablets,days:tablets/perDay}:null;
+  }).filter(Boolean).filter(x=>x.days<10).sort((a,b)=>a.days-b.days);
+
+  const tabCount=document.getElementById("lowStockTabCount");
+  if(tabCount)tabCount.textContent=low.length?`(${low.length})`:"";
+
+  if(!low.length){
+    list.innerHTML='<div class="low-stock-empty">No medicines have less than 10 days of stock.</div>';
+    return;
+  }
+
+  list.innerHTML=low.map(m=>{
+    const d=Number.isInteger(m.days)?String(m.days):String(Number(m.days.toFixed(2)));
+    const buying=String(m.status||"").toLowerCase().includes("buy");
+    return `<div class="low-stock-item ${m.days<=2?"is-critical":""}">
+      <div>
+        <div class="low-stock-name">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div>
+        <div class="low-stock-meta">${esc(m.person)} · ${m.tablets} tablets · <span class="low-stock-days">${d} day${m.days===1?"":"s"} left</span></div>
+      </div>
+      <button type="button" class="low-stock-buy" data-low-stock-buy="${m.id}">${buying?"Edit To Buy":"Add to Buy"}</button>
+    </div>`;
+  }).join("");
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-low-stock-buy]");
+  if(!b)return;
+  const m=meds.find(x=>x.id===b.dataset.lowStockBuy);
+  if(!m)return;
+  openBuySheetModal(m.id,String(m.status||"").toLowerCase().includes("buy"));
+});
+
 function renderToBuy(){
   const list=meds.filter(m=>m.status==="Need to Buy");
   document.getElementById("toBuyTabCount").textContent=list.length?`(${list.length})`:"";
@@ -1150,35 +1214,36 @@ function renderToBuy(){
   );
 }
 
+
 function switchView(view){
   currentView=view;
   const medicinePanel=document.querySelector(".panel");
   const toBuy=document.getElementById("toBuyPanel");
+  const lowStock=document.getElementById("lowStockPanel");
   const filters=document.querySelector(".filterbox");
   const summary=document.querySelector(".summary");
-  // First .panel is the medicine list panel.
   const panels=document.querySelectorAll(".panel");
   const medicineListPanel=panels[0];
-  if(view==="toBuy"){
-    medicineListPanel.style.display="none";
-    toBuy.style.display="block";
-    filters.style.display="none";
-    summary.style.display="none";
-    document.getElementById("viewMedicines").classList.remove("active");
-    document.getElementById("viewToBuy").classList.add("active");
-    renderToBuy();
-  }else{
-    medicineListPanel.style.display="block";
-    toBuy.style.display="none";
-    filters.style.display="block";
-    summary.style.display="grid";
-    document.getElementById("viewMedicines").classList.add("active");
-    document.getElementById("viewToBuy").classList.remove("active");
-    render();
-  }
+
+  medicineListPanel.style.display=view==="medicines"?"block":"none";
+  toBuy.style.display=view==="toBuy"?"block":"none";
+  lowStock.style.display=view==="lowStock"?"block":"none";
+
+  filters.style.display=view==="medicines"?"block":"none";
+  summary.style.display=view==="medicines"?"grid":"none";
+
+  document.getElementById("viewMedicines").classList.toggle("active",view==="medicines");
+  document.getElementById("viewLowStock").classList.toggle("active",view==="lowStock");
+  document.getElementById("viewToBuy").classList.toggle("active",view==="toBuy");
+
+  if(view==="toBuy")renderToBuy();
+  else if(view==="lowStock")renderLowStock();
+  else render();
 }
 document.getElementById("viewMedicines").onclick=()=>switchView("medicines");
+document.getElementById("viewLowStock").onclick=()=>switchView("lowStock");
 document.getElementById("viewToBuy").onclick=()=>switchView("toBuy");
+
 const themeButton=document.getElementById("themeButton");
 if(themeButton){
   themeButton.addEventListener("click",(e)=>{
