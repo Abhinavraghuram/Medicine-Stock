@@ -514,10 +514,10 @@ button:active{
       <input id="newName" placeholder="Tablet name">
       <input id="newDose" placeholder="Dose">
       <select id="newPerson"><option>Father</option><option>Mother</option></select>
-      <select id="newCategory"></select>
+      <select id="newCategory"><option value="">Select category</option></select>
       <button id="add" class="primary">Add</button>
     </div>
-    <div class="note">Category is stored but hidden from each medicine card. Use the Category filter to view tablets by category. Use the Sheets available selector to set current stock. Tap In stock to add sheets to the To Buy list.</div>
+    <div class="note">Category is stored in the database and can be used with the Category filter. Adding a tablet only creates the medicine record; it does not add anything to To Buy. Set its current tablet stock from the medicine list.</div>
   </div>
 
 <div id="lowStockPanel" class="panel low-stock-panel">
@@ -623,6 +623,14 @@ const sb=configured?createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null;
 const APP_USER_ID="11111111-1111-1111-1111-111111111111";
 
 const categories=["Parkinsons","Sugar & BP","Urine","Heart","Misc"];
+function populateAddCategory(){
+  const el=document.getElementById("newCategory");
+  if(!el)return;
+  const current=el.value;
+  el.innerHTML='<option value="">Select category</option>'+categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  if(categories.includes(current))el.value=current;
+}
+
 const qtyOptions=Array.from({length:10},(_,i)=>`${i+1} ${i===0?"Sheet":"Sheets"}`);
 const starter=[
 ["Syndopa","110","Father","In-stock","Parkinsons","1 Sheet"],["Rivamer","3","Father","Need to Buy","Parkinsons","1 Sheet"],
@@ -1087,7 +1095,9 @@ document.getElementById("editSave").onclick=async()=>{
 function clearFilters(){document.getElementById("search").value="";personFilter="all";categoryFilter="all";statusFilter="all";render();}
 async function addTablet(){
   const name=document.getElementById("newName").value.trim();if(!name)return alert("Enter the tablet name.");
-  const row={user_id:APP_USER_ID,name,dose:document.getElementById("newDose").value.trim(),person:document.getElementById("newPerson").value,category:document.getElementById("newCategory").value,status:"Need to Buy",qty:"1 Sheet",sort_order:meds.length};
+  const category=document.getElementById("newCategory").value;
+  if(!category)return alert("Select a category.");
+  const row={user_id:APP_USER_ID,name,dose:document.getElementById("newDose").value.trim(),person:document.getElementById("newPerson").value,category,status:"In-stock",qty:"1 Sheet",sort_order:meds.length};
   const {data,error}=await sb.from("medicines").insert(row).select("*").single();if(error){toast(error.message);return;}
   meds.push(data);document.getElementById("newName").value="";document.getElementById("newDose").value="";render();toast("Tablet added");
 }
@@ -1099,6 +1109,7 @@ document.getElementById("copyBuy").onclick=()=>{switchView("toBuy");};
 document.getElementById("wa").onclick=()=>{switchView("toBuy");document.getElementById("preview").value=buyText();document.getElementById("modalBack").style.display="flex";};
 document.getElementById("close").onclick=()=>document.getElementById("modalBack").style.display="none";
 document.getElementById("copyModal").onclick=async()=>{await navigator.clipboard.writeText(document.getElementById("preview").value);toast("Copied");};
+populateAddCategory();
 document.getElementById("add").onclick=addTablet;
 document.getElementById("markAllBought").onclick=async()=>{
   const p=meds.filter(m=>m.status==="Need to Buy");
