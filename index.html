@@ -454,6 +454,19 @@ button:active{
 @media(max-width:700px){.low-stock-list{grid-template-columns:1fr}}
 
 </style>
+
+<style id="medplus-link-style">
+.medplus-link-field{margin-top:10px}
+.medplus-link-field .field-hint{font-size:11px;opacity:.68;margin-top:5px;line-height:1.35}
+.medplus-buy-btn{
+  border:0;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:700;
+  cursor:pointer;background:rgba(32,128,80,.10);color:#16734a;white-space:nowrap;
+  transition:transform .12s ease,opacity .12s ease;
+}
+.medplus-buy-btn:active{transform:scale(.96);opacity:.75}
+@media(max-width:600px){.medplus-buy-btn{padding:7px 9px;font-size:11px}}
+</style>
+
 </head>
 <body>
 
@@ -549,7 +562,14 @@ button:active{
     <h3 id="sheetModalTitle">Need to Buy</h3>
     <p id="sheetModalText">Select the number of sheets.</p>
     <div id="sheetOptions" class="sheet-options"></div>
-    <div class="sheet-modal-actions">
+    
+<div class="field medplus-link-field">
+  <label for="medplusProductLink">MedPlus Product Link</label>
+  <input id="medplusProductLink" type="url" placeholder="Paste MedPlus product link (optional)" autocomplete="off">
+  <div class="field-hint">Add the exact MedPlus product page link. The Buy on MedPlus button will use it.</div>
+</div>
+
+<div class="sheet-modal-actions">
       <button id="sheetCancel" class="smallbtn">Cancel</button>
       <button id="sheetConfirm" class="primary">Add to To Buy</button>
     </div>
@@ -1279,5 +1299,51 @@ loadData();
 setTimeout(()=>document.getElementById("splash")?.classList.add("hide"),4500);
 if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}
 </script>
+
+<script id="medplus-link-script">
+(function(){
+  window.openMedPlus = function(medicine){
+    var link = (medicine && (medicine.medplus_product_link || medicine.medplusProductLink || medicine.medplus_link)) || "";
+    link = String(link).trim();
+    if(link){
+      window.open(link, "_blank", "noopener,noreferrer");
+      return;
+    }
+    var name = (medicine && (medicine.name || medicine.medicine_name || medicine.tablet_name)) || "";
+    var dose = (medicine && (medicine.dose || medicine.strength)) || "";
+    var q = [name,dose].filter(Boolean).join(" ").trim();
+    if(q){
+      window.open("https://www.medplusmart.com/search/" + encodeURIComponent(q), "_blank", "noopener,noreferrer");
+    }
+  };
+
+  // Expose a tiny helper for V14's existing rendering code.
+  window.medPlusButton = function(medicine){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "medplus-buy-btn";
+    b.textContent = "Buy on MedPlus";
+    b.title = "Open this medicine on MedPlus";
+    b.addEventListener("click", function(e){
+      e.preventDefault(); e.stopPropagation();
+      window.openMedPlus(medicine);
+    });
+    return b;
+  };
+
+  // If V14 stores medicines in a normal array, keep the link field when
+  // saving/loading by patching common object-to-row rendering is not safe.
+  // Instead, use event delegation for a future button and provide a custom
+  // data attribute hook.
+  document.addEventListener("click", function(e){
+    var btn = e.target.closest && e.target.closest("[data-medplus-link]");
+    if(!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    var link = btn.getAttribute("data-medplus-link") || "";
+    if(link) window.open(link, "_blank", "noopener,noreferrer");
+  });
+})();
+</script>
+
 </body>
 </html>
