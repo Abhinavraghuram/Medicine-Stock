@@ -455,16 +455,10 @@ button:active{
 
 </style>
 
-<style id="medplus-link-style">
-.medplus-link-field{margin-top:10px}
-.medplus-link-field .field-hint{font-size:11px;opacity:.68;margin-top:5px;line-height:1.35}
-.medplus-buy-btn{
-  border:0;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:700;
-  cursor:pointer;background:rgba(32,128,80,.10);color:#16734a;white-space:nowrap;
-  transition:transform .12s ease,opacity .12s ease;
-}
-.medplus-buy-btn:active{transform:scale(.96);opacity:.75}
-@media(max-width:600px){.medplus-buy-btn{padding:7px 9px;font-size:11px}}
+<style id="medplus-style">
+.edit-link-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.35}
+.medplus-buy{background:#f0fdfa;border:1px solid #bfece6;color:#0f766e;font-weight:800}
+@media(max-width:520px){.edit-link-hint{font-size:10px}}
 </style>
 
 </head>
@@ -562,14 +556,7 @@ button:active{
     <h3 id="sheetModalTitle">Need to Buy</h3>
     <p id="sheetModalText">Select the number of sheets.</p>
     <div id="sheetOptions" class="sheet-options"></div>
-    
-<div class="field medplus-link-field">
-  <label for="medplusProductLink">MedPlus Product Link</label>
-  <input id="medplusProductLink" type="url" placeholder="Paste MedPlus product link (optional)" autocomplete="off">
-  <div class="field-hint">Add the exact MedPlus product page link. The Buy on MedPlus button will use it.</div>
-</div>
-
-<div class="sheet-modal-actions">
+    <div class="sheet-modal-actions">
       <button id="sheetCancel" class="smallbtn">Cancel</button>
       <button id="sheetConfirm" class="primary">Add to To Buy</button>
     </div>
@@ -592,6 +579,11 @@ button:active{
       <div class="edit-field">
         <label for="editDose">Dose / strength</label>
         <input id="editDose" type="text" placeholder="e.g. 110 mg">
+      </div>
+      <div class="edit-field">
+        <label for="editMedPlusLink">MedPlus Product Link</label>
+        <input id="editMedPlusLink" type="url" placeholder="Paste MedPlus product link (optional)" autocomplete="off">
+        <div class="edit-link-hint">Optional. Paste the exact MedPlus product page for this medicine.</div>
       </div>
     </div>
 
@@ -766,7 +758,7 @@ function render(){
       </div>
       <div class="medbottom">
         <div></div>
-        <div class="actions"><button class="smallbtn" data-edit="${m.id}">Edit</button><button class="smallbtn deletebtn" data-del="${m.id}">Delete</button></div>
+        <div class="actions">${medPlusButtonHtml(m)}<button class="smallbtn" data-edit="${m.id}">Edit</button><button class="smallbtn deletebtn" data-del="${m.id}">Delete</button></div>
       </div>
     </div>`).join(""):`<div class="empty">No medicines found for the selected filters.</div>`;
 
@@ -1077,6 +1069,7 @@ function openEditModal(id){
   document.getElementById("editModalTitle").textContent=`Edit ${m.name}${m.dose?" "+m.dose:""}`;
   document.getElementById("editName").value=m.name||"";
   document.getElementById("editDose").value=m.dose||"";
+  document.getElementById("editMedPlusLink").value=getMedPlusLink(m);
   document.getElementById("editTablets").value=st.tablets||"";
   document.getElementById("editPerSheet").value=st.perSheet||"";
   document.getElementById("editPerDay").value=st.perDay||"";
@@ -1094,10 +1087,13 @@ document.getElementById("editSave").onclick=async()=>{
   if(!editingMedicineId)return;
   const name=document.getElementById("editName").value.trim();
   const dose=document.getElementById("editDose").value.trim();
+  const medPlusLink=document.getElementById("editMedPlusLink").value.trim();
   if(!name)return alert("Tablet name cannot be empty.");
 
   const ok=await patchMed(editingMedicineId,{name,dose});
   if(!ok)return;
+  const editedMedicine=meds.find(x=>x.id===editingMedicineId);
+  if(editedMedicine) await saveMedPlusLink(editedMedicine,medPlusLink);
 
   saveStockInfo(editingMedicineId,{
     sheets:Math.floor((Number(document.getElementById("editTablets").value)||0)/(Number(document.getElementById("editPerSheet").value)||1)),
@@ -1179,7 +1175,7 @@ function renderLowStock(){
         <div class="low-stock-name">${esc(m.name)}${m.dose?` ${esc(m.dose)}`:""}</div>
         <div class="low-stock-meta">${esc(m.person)} · ${m.tablets} tablets · <span class="low-stock-days">${d} day${m.days===1?"":"s"} left</span></div>
       </div>
-      <button type="button" class="low-stock-buy" data-low-stock-buy="${m.id}">${buying?"Edit To Buy":"Add to Buy"}</button>
+      ${medPlusButtonHtml(m)}<button type="button" class="low-stock-buy" data-low-stock-buy="${m.id}">${buying?"Edit To Buy":"Add to Buy"}</button>
     </div>`;
   }).join("");
 }
@@ -1212,6 +1208,7 @@ function renderToBuy(){
       <div class="medbottom">
         <div class="buy-qty-display">🛒 ${esc(m.qty||"1 Sheet")} to buy</div>
         <div class="actions">
+          ${medPlusButtonHtml(m)}
           <button class="smallbtn" data-buy-edit-sheets="${m.id}">Edit sheets</button>
           <button class="smallbtn" data-buy-edit="${m.id}">Edit</button>
         </div>
@@ -1300,47 +1297,43 @@ setTimeout(()=>document.getElementById("splash")?.classList.add("hide"),4500);
 if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}
 </script>
 
-<script id="medplus-link-script">
+<script id="medplus-script">
 (function(){
-  window.openMedPlus = function(medicine){
-    var link = (medicine && (medicine.medplus_product_link || medicine.medplusProductLink || medicine.medplus_link)) || "";
-    link = String(link).trim();
-    if(link){
-      window.open(link, "_blank", "noopener,noreferrer");
-      return;
-    }
-    var name = (medicine && (medicine.name || medicine.medicine_name || medicine.tablet_name)) || "";
-    var dose = (medicine && (medicine.dose || medicine.strength)) || "";
-    var q = [name,dose].filter(Boolean).join(" ").trim();
-    if(q){
-      window.open("https://www.medplusmart.com/search/" + encodeURIComponent(q), "_blank", "noopener,noreferrer");
-    }
+  window.medPlusLocalKey = function(id){ return "medplus-product-link-"+id; };
+  window.getMedPlusLink = function(m){
+    if(!m) return "";
+    if(m.medplus_product_link) return String(m.medplus_product_link).trim();
+    try { return String(localStorage.getItem(window.medPlusLocalKey(m.id)) || "").trim(); }
+    catch(e){ return ""; }
   };
-
-  // Expose a tiny helper for V14's existing rendering code.
-  window.medPlusButton = function(medicine){
-    var b = document.createElement("button");
-    b.type = "button";
-    b.className = "medplus-buy-btn";
-    b.textContent = "Buy on MedPlus";
-    b.title = "Open this medicine on MedPlus";
-    b.addEventListener("click", function(e){
-      e.preventDefault(); e.stopPropagation();
-      window.openMedPlus(medicine);
-    });
-    return b;
+  window.saveMedPlusLink = async function(m, link){
+    link = String(link || "").trim();
+    try {
+      if(link) localStorage.setItem(window.medPlusLocalKey(m.id), link);
+      else localStorage.removeItem(window.medPlusLocalKey(m.id));
+    } catch(e){}
+    // If the optional DB column exists, keep it synced across devices.
+    if(sb && configured){
+      const {error}=await sb.from("medicines").update({medplus_product_link:link || null})
+        .eq("id",m.id).eq("user_id",APP_USER_ID);
+      if(!error){ m.medplus_product_link=link; return true; }
+      // Do not block normal medicine editing if the column has not been added yet.
+      console.warn("MedPlus link DB field unavailable; using local fallback.", error.message);
+    }
+    m.medplus_product_link=link;
+    return true;
   };
-
-  // If V14 stores medicines in a normal array, keep the link field when
-  // saving/loading by patching common object-to-row rendering is not safe.
-  // Instead, use event delegation for a future button and provide a custom
-  // data attribute hook.
-  document.addEventListener("click", function(e){
-    var btn = e.target.closest && e.target.closest("[data-medplus-link]");
-    if(!btn) return;
-    e.preventDefault(); e.stopPropagation();
-    var link = btn.getAttribute("data-medplus-link") || "";
-    if(link) window.open(link, "_blank", "noopener,noreferrer");
+  window.medPlusButtonHtml = function(m){
+    const link=window.getMedPlusLink(m);
+    if(!link) return "";
+    return `<button type="button" class="smallbtn medplus-buy" data-medplus="${esc(m.id)}">🛒 MedPlus</button>`;
+  };
+  document.addEventListener("click",function(e){
+    const b=e.target.closest && e.target.closest("[data-medplus]");
+    if(!b)return;
+    const m=meds.find(x=>x.id===b.dataset.medplus);
+    const link=window.getMedPlusLink(m);
+    if(link) window.open(link,"_blank","noopener,noreferrer");
   });
 })();
 </script>
