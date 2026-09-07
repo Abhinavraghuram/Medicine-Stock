@@ -461,6 +461,23 @@ button:active{
 @media(max-width:520px){.edit-link-hint{font-size:10px}}
 </style>
 
+
+<style id="medplus-workflow-style">
+.medplus-buy-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin:8px 0 12px}
+.medplus-order-btn{background:#f0fdfa;border-color:#bfece6;color:#0f766e;font-weight:800}
+.received-all-btn{font-weight:800}
+.medplus-order-sheet{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.42);display:flex;align-items:center;justify-content:center;padding:18px}
+.medplus-order-card{width:min(560px,100%);max-height:min(82vh,720px);overflow:auto;background:var(--card,#fff);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);padding:20px}
+.medplus-order-card h3{margin:0 0 5px;font-size:20px}
+.medplus-order-sub{color:var(--muted,#667085);font-size:13px;margin-bottom:14px}
+.medplus-order-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid rgba(100,116,139,.14)}
+.medplus-order-name{font-weight:800}
+.medplus-order-qty{font-size:12px;color:var(--muted,#667085);margin-top:3px}
+.medplus-order-open{border:0;border-radius:10px;padding:8px 11px;background:#f0fdfa;color:#0f766e;font-weight:800;cursor:pointer;white-space:nowrap}
+.medplus-order-missing{font-size:11px;color:var(--muted,#667085);white-space:nowrap}
+.medplus-order-close{width:100%;margin-top:14px}
+@media(max-width:600px){.medplus-buy-actions{justify-content:stretch}.medplus-buy-actions button{flex:1}}
+</style>
 </head>
 <body>
 
@@ -1338,5 +1355,5 @@ if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catc
 })();
 </script>
 
-</body>
+\n<script id="medplus-workflow-script">\n(function(){\n  function linkFor(m){\n    if(!m)return "";\n    if(m.medplus_product_link)return String(m.medplus_product_link).trim();\n    try{return String(localStorage.getItem("medplus-product-link-"+m.id)||"").trim()}catch(e){return ""}\n  }\n  function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\\"":"&quot;","'":"&#39;"}[c]})}\n  function toBuy(){return (window.meds||[]).filter(function(m){return String(m.status||"").toLowerCase().replace(/[\\s_-]/g,"")==="needtobuy"})}\n  function openMedPlus(m){var u=linkFor(m);if(u)window.open(u,"_blank","noopener,noreferrer");else{var q=[m.name,m.dose].filter(Boolean).join(" ").trim();if(q)window.open("https://www.medplusmart.com/search/"+encodeURIComponent(q),"_blank","noopener,noreferrer")}}\n  function addButtons(){\n    if(document.querySelector('[data-medplus-order]'))return;\n    var hs=[...document.querySelectorAll('h1,h2,h3,h4,.section-title,.section-head')];\n    var h=hs.find(function(x){return /to buy/i.test(x.textContent||"")});\n    if(h){var host=h.closest('section,.section,.card')||h.parentElement;if(host){var r=document.createElement('div');r.className='medplus-buy-actions';r.innerHTML='<button type="button" class="smallbtn medplus-order-btn" data-medplus-order>🛒 Order on MedPlus</button><button type="button" class="smallbtn received-all-btn" data-received-all>✓ Received all</button>';host.insertBefore(r,host.firstChild)}}\n  }\n  function showOrder(){\n    var list=toBuy();if(!list.length){alert('There are no medicines in To Buy.');return}\n    var s=document.createElement('div');s.className='medplus-order-sheet';\n    s.innerHTML='<div class="medplus-order-card"><h3>MedPlus Order</h3><div class="medplus-order-sub">'+list.length+' medicine'+(list.length===1?'':'s')+' to buy</div>'+list.map(function(m){var q=Number(m.buy_sheets||m.sheets_to_buy||m.quantity||1);return '<div class="medplus-order-row"><div><div class="medplus-order-name">'+esc(m.name)+'</div><div class="medplus-order-qty">'+q+' sheet'+(q===1?'':'s')+'</div></div>'+(linkFor(m)?'<button type="button" class="medplus-order-open" data-medplus-open="'+esc(m.id)+'">Open MedPlus</button>':'<span class="medplus-order-missing">Add link in Edit</span>')+'</div>'}).join('')+'<button type="button" class="smallbtn medplus-order-close" data-medplus-close>Close</button></div>';\n    document.body.appendChild(s)\n  }\n  async function receiveAll(){\n    var list=toBuy();if(!list.length){alert('There are no medicines to receive.');return}\n    if(!confirm('Mark all '+list.length+' medicines as received and add their sheets to stock?'))return\n    var native=document.querySelector('[data-receive-all],[data-all-received]');if(native){native.click();return}\n    if(typeof window.receiveMedicine==='function'){for(const m of list)await window.receiveMedicine(m.id);if(typeof window.loadData==='function')await window.loadData();else location.reload();return}\n    alert('The existing receive-all workflow could not be found.')\n  }\n  document.addEventListener('click',function(e){\n    var x=e.target.closest&&e.target.closest('[data-medplus-order]');if(x){e.preventDefault();showOrder();return}\n    x=e.target.closest&&e.target.closest('[data-medplus-close]');if(x){var s=document.querySelector('.medplus-order-sheet');if(s)s.remove();return}\n    x=e.target.closest&&e.target.closest('[data-medplus-open]');if(x){var m=(window.meds||[]).find(function(v){return String(v.id)===String(x.dataset.medplusOpen)});if(m)openMedPlus(m);return}\n    x=e.target.closest&&e.target.closest('[data-received-all]');if(x){e.preventDefault();receiveAll()}\n  });\n  document.addEventListener('DOMContentLoaded',addButtons);\n  new MutationObserver(addButtons).observe(document.documentElement,{childList:true,subtree:true});\n})();\n</script>\n</body>
 </html>
