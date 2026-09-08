@@ -555,7 +555,7 @@ button:active{
 <div id="toBuyPanel" class="panel to-buy-panel">
   <div class="to-buy-summary">
     <div>
-      <div class="panelhead"><h2>To Buy</h2></div>
+      <div class="panelhead"><h2>To Buy</h2><div class="medplus-buy-actions"><button type="button" id="medplusOrderBtn" class="smallbtn medplus-order-btn">🛒 Order on MedPlus</button><button type="button" id="receivedAllToBuy" class="smallbtn received-all-btn">✓ Received all</button></div></div>
       <div id="toBuyCountText" class="to-buy-count">0 medicines need to be bought</div>
     </div>
     <button id="copyBuyDedicated" class="primary smallbtn">📋 Copy List</button>
@@ -1330,7 +1330,7 @@ if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catc
       else localStorage.removeItem(window.medPlusLocalKey(m.id));
     } catch(e){}
     // If the optional DB column exists, keep it synced across devices.
-    if(sb && configured){
+    if(typeof sb!=="undefined" && sb && typeof configured!=="undefined" && configured){
       const {error}=await sb.from("medicines").update({medplus_product_link:link || null})
         .eq("id",m.id).eq("user_id",APP_USER_ID);
       if(!error){ m.medplus_product_link=link; return true; }
@@ -1355,5 +1355,42 @@ if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catc
 })();
 </script>
 
-\n<script id="medplus-workflow-script">\n(function(){\n  function linkFor(m){\n    if(!m)return "";\n    if(m.medplus_product_link)return String(m.medplus_product_link).trim();\n    try{return String(localStorage.getItem("medplus-product-link-"+m.id)||"").trim()}catch(e){return ""}\n  }\n  function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\\"":"&quot;","'":"&#39;"}[c]})}\n  function toBuy(){return (window.meds||[]).filter(function(m){return String(m.status||"").toLowerCase().replace(/[\\s_-]/g,"")==="needtobuy"})}\n  function openMedPlus(m){var u=linkFor(m);if(u)window.open(u,"_blank","noopener,noreferrer");else{var q=[m.name,m.dose].filter(Boolean).join(" ").trim();if(q)window.open("https://www.medplusmart.com/search/"+encodeURIComponent(q),"_blank","noopener,noreferrer")}}\n  function addButtons(){\n    if(document.querySelector('[data-medplus-order]'))return;\n    var hs=[...document.querySelectorAll('h1,h2,h3,h4,.section-title,.section-head')];\n    var h=hs.find(function(x){return /to buy/i.test(x.textContent||"")});\n    if(h){var host=h.closest('section,.section,.card')||h.parentElement;if(host){var r=document.createElement('div');r.className='medplus-buy-actions';r.innerHTML='<button type="button" class="smallbtn medplus-order-btn" data-medplus-order>🛒 Order on MedPlus</button><button type="button" class="smallbtn received-all-btn" data-received-all>✓ Received all</button>';host.insertBefore(r,host.firstChild)}}\n  }\n  function showOrder(){\n    var list=toBuy();if(!list.length){alert('There are no medicines in To Buy.');return}\n    var s=document.createElement('div');s.className='medplus-order-sheet';\n    s.innerHTML='<div class="medplus-order-card"><h3>MedPlus Order</h3><div class="medplus-order-sub">'+list.length+' medicine'+(list.length===1?'':'s')+' to buy</div>'+list.map(function(m){var q=Number(m.buy_sheets||m.sheets_to_buy||m.quantity||1);return '<div class="medplus-order-row"><div><div class="medplus-order-name">'+esc(m.name)+'</div><div class="medplus-order-qty">'+q+' sheet'+(q===1?'':'s')+'</div></div>'+(linkFor(m)?'<button type="button" class="medplus-order-open" data-medplus-open="'+esc(m.id)+'">Open MedPlus</button>':'<span class="medplus-order-missing">Add link in Edit</span>')+'</div>'}).join('')+'<button type="button" class="smallbtn medplus-order-close" data-medplus-close>Close</button></div>';\n    document.body.appendChild(s)\n  }\n  async function receiveAll(){\n    var list=toBuy();if(!list.length){alert('There are no medicines to receive.');return}\n    if(!confirm('Mark all '+list.length+' medicines as received and add their sheets to stock?'))return\n    var native=document.querySelector('[data-receive-all],[data-all-received]');if(native){native.click();return}\n    if(typeof window.receiveMedicine==='function'){for(const m of list)await window.receiveMedicine(m.id);if(typeof window.loadData==='function')await window.loadData();else location.reload();return}\n    alert('The existing receive-all workflow could not be found.')\n  }\n  document.addEventListener('click',function(e){\n    var x=e.target.closest&&e.target.closest('[data-medplus-order]');if(x){e.preventDefault();showOrder();return}\n    x=e.target.closest&&e.target.closest('[data-medplus-close]');if(x){var s=document.querySelector('.medplus-order-sheet');if(s)s.remove();return}\n    x=e.target.closest&&e.target.closest('[data-medplus-open]');if(x){var m=(window.meds||[]).find(function(v){return String(v.id)===String(x.dataset.medplusOpen)});if(m)openMedPlus(m);return}\n    x=e.target.closest&&e.target.closest('[data-received-all]');if(x){e.preventDefault();receiveAll()}\n  });\n  document.addEventListener('DOMContentLoaded',addButtons);\n  new MutationObserver(addButtons).observe(document.documentElement,{childList:true,subtree:true});\n})();\n</script>\n</body>
+
+<script id="medplus-workflow-script">
+(function(){
+  function getLink(m){
+    if(!m)return "";
+    if(m.medplus_product_link)return String(m.medplus_product_link).trim();
+    try{return String(localStorage.getItem("medplus-product-link-"+m.id)||"").trim()}catch(e){return ""}
+  }
+  function openMedPlus(m){
+    var u=getLink(m);
+    if(u)window.open(u,"_blank","noopener,noreferrer");
+    else{var q=[m.name,m.dose].filter(Boolean).join(" ").trim();if(q)window.open("https://www.medplusmart.com/search/"+encodeURIComponent(q),"_blank","noopener,noreferrer")}
+  }
+  function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}
+  function showOrder(){
+    var list=(window.meds||[]).filter(function(m){return m.status==="Need to Buy"});
+    if(!list.length){alert("There are no medicines in To Buy.");return}
+    var sheet=document.createElement("div");sheet.className="medplus-order-sheet";
+    sheet.innerHTML='<div class="medplus-order-card"><h3>MedPlus Order</h3><div class="medplus-order-sub">'+list.length+' medicine'+(list.length===1?'':'s')+' to buy</div>'+list.map(function(m){
+      var q=m.qty||"1 Sheet",link=getLink(m);
+      return '<div class="medplus-order-row"><div><div class="medplus-order-name">'+esc(m.name)+'</div><div class="medplus-order-qty">'+esc(q)+'</div></div>'+(link?'<button type="button" class="medplus-order-open" data-medplus-open="'+esc(m.id)+'">Open MedPlus</button>':'<span class="medplus-order-missing">Add link in Edit</span>')+'</div>';
+    }).join("")+'<button type="button" class="smallbtn medplus-order-close">Close</button></div>';
+    document.body.appendChild(sheet);
+    sheet.querySelector(".medplus-order-close").onclick=function(){sheet.remove()};
+    sheet.querySelectorAll("[data-medplus-open]").forEach(function(b){b.onclick=function(){var m=(window.meds||[]).find(function(x){return String(x.id)===String(b.dataset.medplusOpen)});if(m)openMedPlus(m)}});
+  }
+  document.addEventListener("click",function(e){
+    var b=e.target.closest&&e.target.closest("[data-medplus]");
+    if(b){var m=(window.meds||[]).find(function(x){return String(x.id)===String(b.dataset.medplus)});if(m)openMedPlus(m);return}
+  });
+  document.addEventListener("DOMContentLoaded",function(){
+    var order=document.getElementById("medplusOrderBtn");if(order)order.onclick=showOrder;
+    var received=document.getElementById("receivedAllToBuy");
+    if(received)received.onclick=function(){var existing=document.getElementById("markAllBought");if(existing)existing.click()};
+  });
+})();
+</script>
+</body>
 </html>
